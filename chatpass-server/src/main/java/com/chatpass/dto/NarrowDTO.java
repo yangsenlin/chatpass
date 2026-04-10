@@ -75,6 +75,7 @@ public class NarrowDTO {
         public static final String DATE = "date";
         public static final String HAS = "has";
         public static final String IN = "in";
+        public static final String IS = "is";
     }
 
     /**

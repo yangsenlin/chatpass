@@ -6,12 +6,12 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 /**
- * Client 实体 - Zulip 客户端
- * 对应 Zulip Client model
+ * Client 实体 - 客户端信息
  * 
  * 记录发送消息的客户端类型
  */
@@ -33,4 +33,10 @@ public class Client {
     @CreationTimestamp
     @Column(name = "date_created", nullable = false, updatable = false)
     private LocalDateTime dateCreated;
+
+    // 预定义客户端
+    public static final String WEB_CLIENT = "website";
+    public static final String DESKTOP_CLIENT = "desktop";
+    public static final String MOBILE_CLIENT = "mobile";
+    public static final String API_CLIENT = "API";
 }
