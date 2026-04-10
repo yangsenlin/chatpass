@@ -56,14 +56,56 @@ Zulip 的独特之处在于 **Topic-based Threading（基于主题的线程）**
 chatpass-server/
 ├── src/main/java/com/chatpass/
 │   ├── config/
+│   │   ├── SecurityConfig.java
+│   │   ├── OpenApiConfig.java
+│   │   └── WebSocketConfig.java      ← WebSocket 实时推送配置
 │   ├── entity/
+│   │   ├── Realm.java
+│   │   ├── UserProfile.java
+│   │   ├── Stream.java
+│   │   ├── Recipient.java
+│   │   ├── Message.java
+│   │   ├── Client.java
+│   │   ├── Subscription.java
+│   │   └── UserMessage.java          ← Flags 位掩码机制
 │   ├── repository/
+│   │   ├── RealmRepository.java
+│   │   ├── UserProfileRepository.java
+│   │   ├── StreamRepository.java
+│   │   ├── RecipientRepository.java
+│   │   ├── MessageRepository.java
+│   │   ├── ClientRepository.java
+│   │   ├── SubscriptionRepository.java
+│   │   └── UserMessageRepository.java
 │   ├── service/
-│   ├── controller/
+│   │   ├── AuthService.java
+│   │   ├── MessageService.java
+│   │   ├── StreamService.java
+│   │   ├── NarrowService.java        ← Zulip Narrow 查询
+│   │   └── UserMessageService.java   ← Flags 状态管理
+│   ├── controller/api/v1/
+│   │   ├── AuthController.java
+│   │   ├── MessageController.java
+│   │   ├── StreamController.java
+│   │   ├── NarrowController.java     ← Narrow 查询 API
+│   │   └── UserMessageController.java ← Flags 操作 API
 │   ├── dto/
-│   ├── mapper/
+│   │   ├── ApiResponse.java
+│   │   ├── AuthDTO.java
+│   │   ├── UserDTO.java
+│   │   ├── MessageDTO.java
+│   │   ├── StreamDTO.java
+│   │   ├── NarrowDTO.java            ← Narrow 查询 DTO
+│   │   ├── WebSocketDTO.java         ← WebSocket Event DTO
+│   │   └── UserMessageDTO.java       ← Flags 操作 DTO
+│   ├── websocket/
+│   │   └── WebSocketEventHandler.java ← 实时推送处理
 │   ├── exception/
+│   │   └── ResourceNotFoundException.java
 │   └── security/
+│   │   ├── JwtTokenProvider.java
+│   │   └── JwtAuthenticationFilter.java
+│   └── ChatPassApplication.java
 └── src/main/resources/
     ├── application.yml
     └── db/init.sql

@@ -36,4 +36,13 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     
     @Query("SELECT COUNT(m) FROM Message m WHERE m.realm.id = :realmId")
     Long countByRealmId(@Param("realmId") Long realmId);
+    
+    // Narrow 查询支持
+    Page<Message> findByRecipientIdInOrderByDateSentDesc(List<Long> recipientIds, Pageable pageable);
+    
+    @Query("SELECT m FROM Message m WHERE m.realm.id = :realmId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
+    List<Message> searchByContent(@Param("realmId") Long realmId, @Param("query") String query);
+    
+    @Query("SELECT m FROM Message m WHERE m.sender.id = :senderId ORDER BY m.dateSent DESC")
+    List<Message> findBySenderIdOrderByDateSentDesc(@Param("senderId") Long senderId);
 }

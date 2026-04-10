@@ -28,4 +28,12 @@ public interface UserMessageRepository extends JpaRepository<UserMessage, Long> 
     void markAsRead(@Param("userId") Long userId, @Param("messageIds") List<Long> messageIds);
     
     boolean existsByUserProfileIdAndMessageId(Long userProfileId, Long messageId);
+    
+    // 查找未读消息（flags 不包含 FLAG_READ = 1）
+    @Query("SELECT um FROM UserMessage um WHERE um.userProfile.id = :userId AND (um.flags & 1) = 0")
+    List<UserMessage> findByUserProfileIdAndFlagsNot(@Param("userId") Long userId, @Param("flag") Long flag);
+    
+    // 查找特定 flag 的消息
+    @Query("SELECT um FROM UserMessage um WHERE um.userProfile.id = :userId AND (um.flags & :flag) != 0")
+    List<UserMessage> findByUserProfileIdAndFlagSet(@Param("userId") Long userId, @Param("flag") Long flag);
 }
