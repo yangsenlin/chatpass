@@ -12,13 +12,14 @@
 
 | 指标 | 数值 |
 |------|------|
-| **Java 文件** | 104 |
-| **代码行数** | 9,292 |
+| **Java 文件** | 107 |
+| **代码行数** | 9,618 |
 | **Controller** | 14 |
-| **Service** | 15 |
+| **Service** | 16 |
 | **Entity** | 16 |
 | **Repository** | 15 |
-| **DTO** | 13 |
+| **DTO** | 14 |
+| **Config** | 4 |
 | **测试文件** | 7 |
 | **测试用例** | 30 (27 通过) |
 
@@ -128,8 +129,8 @@
 
 - **语言：** Java 21
 - **框架：** Spring Boot 3.2.5
-- **数据库：** PostgreSQL
-- **缓存：** Redis
+- **数据库：** PostgreSQL + Flyway
+- **缓存：** Redis（Lettuce）
 - **认证：** JWT (jjwt)
 - **构建：** Gradle 8.7
 - **文档：** OpenAPI/Swagger
