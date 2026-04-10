@@ -52,7 +52,7 @@ public class SecurityUtil {
      */
     public Long getCurrentRealmId() {
         UserProfile user = getCurrentUser();
-        return user.getRealm().getId();
+        return user.getRealm() != null ? user.getRealm().getId() : null;
     }
 
     /**
@@ -76,14 +76,14 @@ public class SecurityUtil {
      */
     public boolean isAdmin() {
         UserProfile user = getCurrentUser();
-        return user.getRole() >= 300;
+        return user.getRole() != null && user.getRole() >= 300;
     }
 
     /**
      * 检查当前用户是否是版主
      */
     public boolean isModerator() {
-        UserProfile user = getCurrentUser();
-        return user.getRole() >= 200;
+        // 暂时简化：管理员即版主
+        return isAdmin();
     }
 }

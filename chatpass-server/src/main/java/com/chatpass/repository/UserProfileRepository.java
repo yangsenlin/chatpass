@@ -29,4 +29,6 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, Long> 
     Long countActiveUsersByRealmId(@Param("realmId") Long realmId);
     
     boolean existsByRealmIdAndEmail(Long realmId, String email);
+    
+    boolean existsByEmail(String email);
 }

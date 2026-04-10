@@ -65,6 +65,12 @@ dependencies {
     implementation 'commons-io:commons-io:2.15.1'
     implementation 'org.apache.commons:commons-lang3:3.14.0'
     
+    // Rate Limiting
+    implementation 'com.github.vladimir-bukhtoyarov:bucket4j-core:7.6.0'
+    
+    // Email
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    
     // Markdown Rendering
     implementation 'org.commonmark:commonmark:0.21.0'
     implementation 'org.commonmark:commonmark-ext-gfm-tables:0.21.0'

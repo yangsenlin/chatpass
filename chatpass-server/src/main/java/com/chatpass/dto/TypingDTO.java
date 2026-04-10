@@ -37,7 +37,7 @@ public class TypingDTO {
     @AllArgsConstructor
     @Builder
     public static class Event {
-        private String type = "typing";
+        private String type;
         private String op;          // "start" or "stop"
         private Long senderId;
         private String senderName;

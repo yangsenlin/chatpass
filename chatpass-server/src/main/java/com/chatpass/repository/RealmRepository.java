@@ -8,10 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface RealmRepository extends JpaRepository<Realm, Long> {
-    
+
     Optional<Realm> findByStringId(String stringId);
-    
-    Optional<Realm> findByDomain(String domain);
     
     boolean existsByStringId(String stringId);
 }
