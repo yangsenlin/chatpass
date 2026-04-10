@@ -6,48 +6,47 @@
 
 ## 🔴 高优先级（核心功能）
 
-### 1. 用户注册/邀请系统
-- 用户注册流程
-- 還请链接生成
-- Realm 加入流程
-- 邀请码验证
+### ✅ 1. 用户注册/邀请系统
+- ✅ 用户注册流程
+- ✅ 邀请链接生成
+- ✅ Realm 加入流程
+- ✅ 邀请码验证
 
-**文件待创建：**
-- `entity/RealmInvite.java`
-- `service/InviteService.java`
-- `controller/api/v1/InviteController.java`
-
----
-
-### 2. 邮件通知系统
-- 還请邮件发送
-- 提及邮件通知
-- Stream 新消息通知
-- 私信通知
-- 邮件模板配置
-
-**文件待创建：**
-- `service/EmailService.java`
-- `config/EmailConfig.java`
-- `dto/EmailDTO.java`
+**文件已创建：**
+- ✅ `entity/RealmInvite.java`
+- ✅ `service/InviteService.java`
+- ✅ `controller/api/v1/InviteController.java`
 
 ---
 
-### 3. Read Receipts（阅读回执）
-- 消息已读确认
-- 已读时间戳记录
-- 已读用户列表查询
-- 已读通知推送
+### ✅ 2. 邮件通知系统
+- ✅ 邀请邮件发送
+- ✅ 提及邮件通知
+- ✅ Stream 新消息通知
+- ✅ 私信通知
+- ✅ 邮件模板配置
 
-**文件待修改：**
-- `entity/UserMessage.java` - 添加 `timestampRead`
-- `service/UserMessageService.java` - 添加已读查询
-- `controller/api/v1/UserMessageController.java`
+**文件已创建：**
+- ✅ `service/EmailService.java`
+- ✅ `config/EmailConfig.java`
 
 ---
 
-### 4. 权限系统
-- 用户角色管理（Admin/Member/Guest）
+### ✅ 3. Read Receipts（阅读回执）
+- ✅ 消息已读确认
+- ✅ 已读时间戳记录
+- ✅ 已读用户列表查询
+- ✅ 已读通知推送
+
+**文件已创建：**
+- ✅ `entity/ReadReceipt.java`
+- ✅ `service/ReadReceiptService.java`
+- ✅ `controller/api/v1/ReadReceiptController.java`
+
+---
+
+### ✅ 4. 权限系统
+- ✅ 用户角色管理（Admin/Member/Guest）
 - Stream 权限检查
 - 消息权限检查
 - API 权限过滤
