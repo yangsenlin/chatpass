@@ -156,12 +156,17 @@
 
 ### 2. @提及检测
 
-**当前状态：** Flag 常量已定义，检测逻辑待实现
+**当前状态：** ✅ 已完成
 
-**需要：**
-- 解析消息内容检测 `@username`
-- 自动设置 `FLAG_MENTIONED`
-- 支持 `@all`/`@everyone` 设置 `FLAG_WILDCARD_MENTIONED`
+**已实现：**
+- ✅ `@username` 检测
+- ✅ `@all/@everyone` 广播提及
+- ✅ 自动设置 `FLAG_MENTIONED`
+- ✅ 自动设置 `FLAG_WILDCARD_MENTIONED`
+
+**文件：**
+- `service/MarkdownService.java`（detectMentions）
+- `service/MessageService.java`（createUserMessagesForStream）
 
 ---
 
@@ -178,22 +183,48 @@
 
 ### 4. Markdown 渲染
 
-**当前状态：** 字段已定义，渲染逻辑待实现
+**当前状态：** ✅ 已完成
 
-**需要：**
-- Markdown → HTML 渲染
-- 存储 `rendered_content`
-- 支持版本控制
+**已实现：**
+- ✅ CommonMark GFM 渲染（表格、删除线）
+- ✅ `MarkdownService.render()` 方法
+- ✅ 存储 `rendered_content`
+- ✅ 版本控制 `rendered_content_version`
+
+**文件：**
+- `build.gradle`（添加 commonmark 依赖）
+- `service/MarkdownService.java`
 
 ---
 
 ### 5. 消息编辑历史
 
-**当前状态：** 字段已定义，历史记录待实现
+**当前状态：** ✅ 已完成
 
-**需要：**
-- 存储编辑历史 JSON
-- 完整的版本回溯
+**已实现：**
+- ✅ 存储编辑历史 JSON
+- ✅ `Message.editHistory` 字段
+- ✅ 编辑时自动记录
+
+**文件：**
+- `entity/Message.java`
+- `service/MessageService.java`（update方法）
+
+---
+
+### 2. @提及检测
+
+**当前状态：** ✅ 已完成
+
+**已实现：**
+- ✅ `@username` 检测
+- ✅ `@all/@everyone` 广播提及
+- ✅ 自动设置 `FLAG_MENTIONED`
+- ✅ 自动设置 `FLAG_WILDCARD_MENTIONED`
+
+**文件：**
+- `service/MarkdownService.java`（detectMentions）
+- `service/MessageService.java`（createUserMessagesForStream）
 
 ---
 
@@ -201,10 +232,10 @@
 
 | 类别 | 数量 |
 |------|------|
-| Java 文件 | 44 |
+| Java 文件 | 46 |
 | Entity | 8 |
 | Repository | 8 |
-| Service | 5 |
+| Service | 7 |
 | Controller | 5 |
 | DTO | 8 |
 | Config | 3 |
@@ -222,11 +253,12 @@
 | UserMessage Flags | UserMessage.flags | ✅ |
 | WebSocket 推送 | WebSocketEventHandler | ✅ |
 | Subscription 订阅 | Subscription 实体 | ✅ |
-| Markdown 渲染 | 待实现 | 🔄 |
-| @提及检测 | 待实现 | 🔄 |
-| Alert Word | 待实现 | 🔄 |
-| 编辑历史 | 待实现 | 🔄 |
+| Markdown 渲染 | MarkdownService | ✅ |
+| @提及检测 | MarkdownService.detectMentions | ✅ |
+| 编辑历史 | Message.editHistory | ✅ |
+| Alert Word | AlertWordService | 🔄框架 |
+| 私信多收件人 | 已实现 | ✅ |
 
 ---
 
-*更新时间: 2026-04-10*
+*更新时间: 2026-04-10 13:00*
