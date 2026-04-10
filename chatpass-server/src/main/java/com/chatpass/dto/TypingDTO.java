@@ -8,7 +8,9 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Typing DTO
+ * TypingDTO
+ * 
+ * 输入提示数据传输对象
  */
 public class TypingDTO {
 
@@ -16,53 +18,59 @@ public class TypingDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class StartRequest {
-        private Long recipientId;   // Stream ID or DM recipient
-        private String topic;       // For Stream messages
-        private String type;        // "stream" or "private"
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class StopRequest {
-        private Long recipientId;
-        private String topic;
-        private String type;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Event {
-        private String type;
-        private String op;          // "start" or "stop"
-        private Long senderId;
-        private String senderName;
-        private Long recipientId;
-        private String topic;
-        private List<Long> userIds; // Who should receive this event
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class StatusResponse {
-        private Long recipientId;
-        private String topic;
-        private List<TypingUser> typingUsers;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class TypingUser {
+    public static class TypingResponse {
         private Long id;
-        private String fullName;
-        private String email;
+        private Long userId;
+        private String userName;
+        private String typingType; // direct or stream
+        private Long recipientId;  // 私信接收者
+        private Long streamId;     // 频道 ID
+        private String topic;      // 频道 Topic
+        private String lastUpdate;
+        private Integer remainingSeconds;
+        private Boolean isStillTyping;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class StreamTypingRequest {
+        private String topic; // 频道 Topic
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TypingSummary {
+        private Long recipientId;
+        private Long typingUserCount;
+        private List<String> typingUsers; // 正在输入的用户名列表
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TypingEvent {
+        private String eventType; // "typing_start" or "typing_stop"
+        private Long userId;
+        private String userName;
+        private String typingType;
+        private Long recipientId;
+        private Long streamId;
+        private String topic;
+        private String timestamp;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TypingListResponse {
+        private List<TypingResponse> typingUsers;
+        private Long count;
+        private String recipientType;
     }
 }
