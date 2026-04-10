@@ -18,6 +18,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     
     List<Subscription> findByStreamId(Long streamId);
     
+    List<Subscription> findByStreamIdAndActiveTrue(Long streamId);
+    
     Optional<Subscription> findByUserProfileIdAndStreamId(Long userProfileId, Long streamId);
     
     @Query("SELECT s FROM Subscription s WHERE s.userProfile.id = :userId AND s.stream.deactivated = false AND s.active = true")

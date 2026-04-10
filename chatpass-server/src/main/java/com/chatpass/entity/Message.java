@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 
@@ -14,7 +16,7 @@ import java.time.LocalDateTime;
  * Message 实体 - Zulip 消息
  * 对应 Zulip AbstractMessage model
  * 
- * Zulip 的核心实体：消息
+ * 支持软删除
  */
 @Data
 @NoArgsConstructor
@@ -25,8 +27,11 @@ import java.time.LocalDateTime;
     @Index(name = "idx_messages_recipient", columnList = "recipient_id"),
     @Index(name = "idx_messages_sender", columnList = "sender_id"),
     @Index(name = "idx_messages_realm", columnList = "realm_id"),
-    @Index(name = "idx_messages_date_sent", columnList = "date_sent")
+    @Index(name = "idx_messages_date_sent", columnList = "date_sent"),
+    @Index(name = "idx_messages_deleted", columnList = "is_deleted")
 })
+@SQLDelete(sql = "UPDATE messages SET is_deleted = true, deleted_at = NOW() WHERE id = ?")
+@Where(clause = "is_deleted = false")
 public class Message {
 
     @Id
@@ -38,7 +43,7 @@ public class Message {
     @JoinColumn(name = "sender_id", nullable = false)
     private UserProfile sender;
 
-    // 接收者 (通过 Recipient 关联 Stream 或 Private)
+    // 接收者
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_id", nullable = false)
     private Recipient recipient;
@@ -49,13 +54,11 @@ public class Message {
     private Realm realm;
 
     // 消息类型
-    // 1=Normal, 2=Resolve topic notification
     @Column(name = "type")
     @Builder.Default
     private Integer type = 1;
 
-    // Topic (主题) - Zulip 的核心概念
-    // Direct messages 使用特殊字符 \x07 作为 topic
+    // Topic
     @Column(name = "subject", length = 60)
     private String subject;
 
@@ -104,14 +107,23 @@ public class Message {
     @Builder.Default
     private Boolean isChannelMessage = true;
 
-    // Topic 名字 (便捷方法)
-    public String getTopicName() {
-        // DM 使用特殊字符，返回空字符串
-        if (recipient != null && recipient.getType() != null && recipient.getType() == Recipient.TYPE_PRIVATE) {
-            return "";
-        }
-        return subject;
-    }
+    // 软删除
+    @Column(name = "is_deleted")
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by_id")
+    private Long deletedById;
+
+    // 话题解析时间
+    @Column(name = "topic_resolved_time")
+    private LocalDateTime topicResolvedTime;
+
+    @Column(name = "topic_resolved_by_id")
+    private Long topicResolvedById;
 
     @CreationTimestamp
     @Column(name = "date_created", nullable = false, updatable = false)
@@ -120,4 +132,17 @@ public class Message {
     @UpdateTimestamp
     @Column(name = "last_updated", nullable = false)
     private LocalDateTime lastUpdated;
+
+    // Topic 名字
+    public String getTopicName() {
+        if (recipient != null && recipient.getType() != null && recipient.getType() == Recipient.TYPE_PRIVATE) {
+            return "";
+        }
+        return subject;
+    }
+
+    // 是否已编辑
+    public boolean isEdited() {
+        return lastEditTime != null;
+    }
 }
