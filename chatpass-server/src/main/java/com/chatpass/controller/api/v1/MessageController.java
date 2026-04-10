@@ -2,6 +2,7 @@ package com.chatpass.controller.api.v1;
 
 import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.MessageDTO;
+import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.MessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,8 +14,6 @@ import java.util.List;
 
 /**
  * 消息控制器
- * 
- * Zulip 消息 API
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -23,15 +22,15 @@ import java.util.List;
 public class MessageController {
 
     private final MessageService messageService;
+    private final SecurityUtil securityUtil;
 
     @PostMapping("/messages")
     @Operation(summary = "发送消息", description = "发送消息到 Stream 或私信")
     public ResponseEntity<ApiResponse<MessageDTO.Response>> sendMessage(
             @RequestBody MessageDTO.SendRequest request) {
         
-        // TODO: 从 SecurityContext 获取用户信息
-        Long senderId = 1L;
-        Long realmId = 1L;
+        Long senderId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
         
         MessageDTO.Response response;
         
@@ -49,10 +48,10 @@ public class MessageController {
     @GetMapping("/messages/{messageId}")
     @Operation(summary = "获取消息详情")
     public ResponseEntity<ApiResponse<MessageDTO.Response>> getMessage(
-            @PathVariable Long messageId,
-            @RequestParam(required = false) Long realmId) {
+            @PathVariable Long messageId) {
         
-        MessageDTO.Response response = messageService.getById(realmId != null ? realmId : 1L, messageId);
+        Long realmId = securityUtil.getCurrentRealmId();
+        MessageDTO.Response response = messageService.getById(realmId, messageId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -62,9 +61,8 @@ public class MessageController {
             @PathVariable Long messageId,
             @RequestBody MessageDTO.UpdateRequest request) {
         
-        // TODO: 从 SecurityContext 获取用户信息
-        Long userId = 1L;
-        Long realmId = 1L;
+        Long userId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
         
         MessageDTO.Response response = messageService.update(
                 realmId, messageId, userId, request.getSubject(), request.getContent());
@@ -80,8 +78,7 @@ public class MessageController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int pageSize) {
         
-        // TODO: 从 SecurityContext 获取 realmId
-        Long realmId = 1L;
+        Long realmId = securityUtil.getCurrentRealmId();
         
         MessageDTO.ListResponse response = messageService.getStreamMessages(
                 realmId, streamId, topic, page, pageSize);

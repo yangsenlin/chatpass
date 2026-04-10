@@ -2,6 +2,7 @@ package com.chatpass.controller.api.v1;
 
 import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.StreamDTO;
+import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.StreamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,74 +14,84 @@ import java.util.List;
 
 /**
  * Stream 控制器
- * 
- * Zulip Stream (频道) API
  */
 @RestController
-@RequestMapping("/api/v1/streams")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Streams", description = "Stream (频道) API")
+@Tag(name = "Streams", description = "频道 API")
 public class StreamController {
 
     private final StreamService streamService;
+    private final SecurityUtil securityUtil;
 
-    @PostMapping
+    @GetMapping("/streams")
+    @Operation(summary = "获取所有 Stream")
+    public ResponseEntity<ApiResponse<List<StreamDTO.Response>>> getStreams() {
+        Long realmId = securityUtil.getCurrentRealmId();
+        List<StreamDTO.Response> streams = streamService.getStreams(realmId);
+        return ResponseEntity.ok(ApiResponse.success(streams));
+    }
+
+    @GetMapping("/streams/{streamId}")
+    @Operation(summary = "获取 Stream 详情")
+    public ResponseEntity<ApiResponse<StreamDTO.Response>> getStream(@PathVariable Long streamId) {
+        Long realmId = securityUtil.getCurrentRealmId();
+        StreamDTO.Response stream = streamService.getById(realmId, streamId);
+        return ResponseEntity.ok(ApiResponse.success(stream));
+    }
+
+    @PostMapping("/streams")
     @Operation(summary = "创建 Stream")
     public ResponseEntity<ApiResponse<StreamDTO.Response>> createStream(
             @RequestBody StreamDTO.CreateRequest request) {
         
-        // TODO: 从 SecurityContext 获取用户信息
-        Long realmId = 1L;
-        Long creatorId = 1L;
+        Long userId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
         
-        StreamDTO.Response response = streamService.create(realmId, creatorId, request);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        StreamDTO.Response stream = streamService.create(realmId, userId, request);
+        return ResponseEntity.ok(ApiResponse.success(stream));
     }
 
-    @GetMapping
-    @Operation(summary = "获取 Stream 列表")
-    public ResponseEntity<ApiResponse<List<StreamDTO.Response>>> listStreams(
-            @RequestParam(defaultValue = "false") boolean includeDeactivated) {
-        
-        // TODO: 从 SecurityContext 获取 realmId
-        Long realmId = 1L;
-        
-        List<StreamDTO.Response> streams = streamService.list(realmId, includeDeactivated);
-        return ResponseEntity.ok(ApiResponse.success(streams));
-    }
-
-    @GetMapping("/{streamId}")
-    @Operation(summary = "获取 Stream 详情")
-    public ResponseEntity<ApiResponse<StreamDTO.Response>> getStream(
-            @PathVariable Long streamId) {
-        
-        // TODO: 从 SecurityContext 获取 realmId
-        Long realmId = 1L;
-        
-        StreamDTO.Response response = streamService.getById(realmId, streamId);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @PatchMapping("/{streamId}")
+    @PatchMapping("/streams/{streamId}")
     @Operation(summary = "更新 Stream")
     public ResponseEntity<ApiResponse<StreamDTO.Response>> updateStream(
             @PathVariable Long streamId,
             @RequestBody StreamDTO.UpdateRequest request) {
         
-        // TODO: 从 SecurityContext 获取 realmId
-        Long realmId = 1L;
-        
-        StreamDTO.Response response = streamService.update(realmId, streamId, request);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        Long realmId = securityUtil.getCurrentRealmId();
+        StreamDTO.Response stream = streamService.update(realmId, streamId, request);
+        return ResponseEntity.ok(ApiResponse.success(stream));
     }
 
-    @DeleteMapping("/{streamId}")
-    @Operation(summary = "删除（停用）Stream")
-    public ResponseEntity<ApiResponse<Void>> deactivateStream(@PathVariable Long streamId) {
-        // TODO: 从 SecurityContext 获取 realmId
-        Long realmId = 1L;
-        
-        streamService.deactivate(realmId, streamId);
-        return ResponseEntity.ok(ApiResponse.success("Stream deactivated", null));
+    @DeleteMapping("/streams/{streamId}")
+    @Operation(summary = "删除 Stream")
+    public ResponseEntity<ApiResponse<Void>> deleteStream(@PathVariable Long streamId) {
+        Long realmId = securityUtil.getCurrentRealmId();
+        streamService.delete(realmId, streamId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/streams/{streamId}/subscribe")
+    @Operation(summary = "订阅 Stream")
+    public ResponseEntity<ApiResponse<Void>> subscribeStream(@PathVariable Long streamId) {
+        Long userId = securityUtil.getCurrentUserId();
+        streamService.subscribe(userId, streamId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @DeleteMapping("/streams/{streamId}/subscribe")
+    @Operation(summary = "取消订阅 Stream")
+    public ResponseEntity<ApiResponse<Void>> unsubscribeStream(@PathVariable Long streamId) {
+        Long userId = securityUtil.getCurrentUserId();
+        streamService.unsubscribe(userId, streamId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/streams/{streamId}/topics")
+    @Operation(summary = "获取 Stream 的所有 Topic")
+    public ResponseEntity<ApiResponse<List<String>>> getTopics(@PathVariable Long streamId) {
+        Long realmId = securityUtil.getCurrentRealmId();
+        List<String> topics = streamService.getTopics(realmId, streamId);
+        return ResponseEntity.ok(ApiResponse.success(topics));
     }
 }

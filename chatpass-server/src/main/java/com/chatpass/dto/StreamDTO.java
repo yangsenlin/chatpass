@@ -1,9 +1,9 @@
 package com.chatpass.dto;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -19,8 +19,8 @@ public class StreamDTO {
     public static class CreateRequest {
         private String name;
         private String description;
-        private Boolean inviteOnly;
-        private Boolean isWebPublic;
+        private Boolean inviteOnly = false;
+        private Boolean isWebPublic = false;
     }
 
     @Data
@@ -30,8 +30,9 @@ public class StreamDTO {
     public static class UpdateRequest {
         private String name;
         private String description;
-        private Boolean isMuted;
-        private String color;
+        private Boolean inviteOnly;
+        private Boolean isWebPublic;
+        private Boolean deactivated;
     }
 
     @Data
@@ -43,11 +44,11 @@ public class StreamDTO {
         private String name;
         private String description;
         private String renderedDescription;
+        private Long realmId;
         private Boolean inviteOnly;
         private Boolean isWebPublic;
         private Boolean deactivated;
         private Integer subscriberCount;
-        private Integer streamPostPolicy;
         private LocalDateTime dateCreated;
     }
 
@@ -57,10 +58,10 @@ public class StreamDTO {
     @Builder
     public static class SubscriptionResponse {
         private Long streamId;
-        private String name;
+        private String streamName;
+        private Boolean subscribed;
         private String color;
         private Boolean isMuted;
-        private Boolean pinnedToTop;
-        private Boolean inHomeView;
+        private Boolean pinToTop;
     }
 }

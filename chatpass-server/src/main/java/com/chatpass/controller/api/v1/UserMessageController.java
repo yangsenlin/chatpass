@@ -2,6 +2,7 @@ package com.chatpass.controller.api.v1;
 
 import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.UserMessageDTO;
+import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.UserMessageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,8 +14,6 @@ import java.util.List;
 
 /**
  * UserMessage 控制器
- * 
- * 用户消息状态管理（已读、标记等）
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -23,15 +22,14 @@ import java.util.List;
 public class UserMessageController {
 
     private final UserMessageService userMessageService;
+    private final SecurityUtil securityUtil;
 
     @PostMapping("/messages/flags")
     @Operation(summary = "更新消息 Flags", description = "标记/取消标记消息")
     public ResponseEntity<ApiResponse<UserMessageDTO.FlagsResponse>> updateFlags(
             @RequestBody UserMessageDTO.FlagsRequest request) {
         
-        // TODO: 从 SecurityContext 获取用户信息
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         UserMessageDTO.FlagsResponse response = userMessageService.updateFlags(userId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -39,8 +37,7 @@ public class UserMessageController {
     @PostMapping("/messages/mark_all_as_read")
     @Operation(summary = "标记全部已读")
     public ResponseEntity<ApiResponse<UserMessageDTO.FlagsResponse>> markAllAsRead() {
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         UserMessageDTO.FlagsResponse response = userMessageService.markAllAsRead(userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -50,8 +47,7 @@ public class UserMessageController {
     public ResponseEntity<ApiResponse<List<String>>> getMessageFlags(
             @PathVariable Long messageId) {
         
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         List<String> flags = userMessageService.getMessageFlags(userId, messageId);
         return ResponseEntity.ok(ApiResponse.success(flags));
     }
@@ -59,8 +55,7 @@ public class UserMessageController {
     @GetMapping("/unread")
     @Operation(summary = "获取未读消息摘要")
     public ResponseEntity<ApiResponse<UserMessageDTO.UnreadSummary>> getUnreadSummary() {
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         UserMessageDTO.UnreadSummary summary = userMessageService.getUnreadSummary(userId);
         return ResponseEntity.ok(ApiResponse.success(summary));
     }

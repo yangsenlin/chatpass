@@ -2,6 +2,7 @@ package com.chatpass.controller.api.v1;
 
 import com.chatpass.dto.AlertWordDTO;
 import com.chatpass.dto.ApiResponse;
+import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.AlertWordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,8 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * AlertWord 控制器
- * 
- * 用户自定义关键词提醒 API
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -21,13 +20,12 @@ import org.springframework.web.bind.annotation.*;
 public class AlertWordController {
 
     private final AlertWordService alertWordService;
+    private final SecurityUtil securityUtil;
 
     @GetMapping("/users/me/alert_words")
     @Operation(summary = "获取用户的所有 Alert Words")
     public ResponseEntity<ApiResponse<AlertWordDTO.ListResponse>> getAlertWords() {
-        // TODO: 从 SecurityContext 获取用户信息
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         AlertWordDTO.ListResponse response = alertWordService.getUserAlertWords(userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -37,8 +35,8 @@ public class AlertWordController {
     public ResponseEntity<ApiResponse<AlertWordDTO.Response>> addAlertWord(
             @RequestBody AlertWordDTO.CreateRequest request) {
         
-        Long userId = 1L;
-        Long realmId = 1L;
+        Long userId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
         
         AlertWordDTO.Response response = alertWordService.addAlertWord(userId, realmId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -49,8 +47,8 @@ public class AlertWordController {
     public ResponseEntity<ApiResponse<AlertWordDTO.ListResponse>> addAlertWords(
             @RequestBody AlertWordDTO.BatchRequest request) {
         
-        Long userId = 1L;
-        Long realmId = 1L;
+        Long userId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
         
         AlertWordDTO.ListResponse response = alertWordService.addAlertWords(userId, realmId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -62,8 +60,7 @@ public class AlertWordController {
             @PathVariable Long alertWordId,
             @RequestBody AlertWordDTO.UpdateRequest request) {
         
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         AlertWordDTO.Response response = alertWordService.updateAlertWord(userId, alertWordId, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -71,8 +68,7 @@ public class AlertWordController {
     @DeleteMapping("/users/me/alert_words/{alertWordId}")
     @Operation(summary = "删除 Alert Word")
     public ResponseEntity<ApiResponse<Void>> removeAlertWord(@PathVariable Long alertWordId) {
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         alertWordService.removeAlertWord(userId, alertWordId);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -80,8 +76,7 @@ public class AlertWordController {
     @DeleteMapping("/users/me/alert_words/by-word")
     @Operation(summary = "通过词语删除 Alert Word")
     public ResponseEntity<ApiResponse<Void>> removeAlertWordByText(@RequestParam String word) {
-        Long userId = 1L;
-        
+        Long userId = securityUtil.getCurrentUserId();
         alertWordService.removeAlertWordByText(userId, word);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
