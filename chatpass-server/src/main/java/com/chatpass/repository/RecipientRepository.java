@@ -17,6 +17,8 @@ public interface RecipientRepository extends JpaRepository<Recipient, Long> {
     @Query("SELECT r FROM Recipient r WHERE r.type = 1 AND r.streamId = :streamId")
     Optional<Recipient> findStreamRecipient(@Param("streamId") Long streamId);
     
+    Optional<Recipient> findByTypeAndStreamId(Integer type, Long streamId);
+    
     List<Recipient> findByStreamIdIn(List<Long> streamIds);
     
     List<Recipient> findByType(Integer type);
