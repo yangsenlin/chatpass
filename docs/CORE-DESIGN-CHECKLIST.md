@@ -172,12 +172,32 @@
 
 ### 3. Alert Word（关键词提醒）
 
-**当前状态：** Flag 常量已定义，功能待实现
+**当前状态：** ✅ 已完成
 
-**需要：**
-- 用户自定义关键词列表
-- 消息发送时检测关键词
-- 自动设置 `FLAG_HAS_ALERT_WORD`
+**已实现：**
+- ✅ `AlertWord` 实体存储用户关键词
+- ✅ `AlertWordRepository` 数据访问
+- ✅ `AlertWordService` 完整 CRUD
+- ✅ `AlertWordController` API 接口
+- ✅ 消息发送时自动检测并设置 `FLAG_HAS_ALERT_WORD`
+- ✅ 支持匹配模式（包含/精确/前缀/后缀）
+- ✅ 支持通知配置（邮件/推送/桌面）
+
+**API：**
+| Method | Path | 说明 |
+|--------|------|------|
+| GET | /users/me/alert_words | 获取所有关键词 |
+| POST | /users/me/alert_words | 添加关键词 |
+| POST | /users/me/alert_words/batch | 批量添加 |
+| PATCH | /users/me/alert_words/{id} | 更新关键词 |
+| DELETE | /users/me/alert_words/{id} | 删除关键词 |
+
+**文件：**
+- `entity/AlertWord.java`
+- `repository/AlertWordRepository.java`
+- `service/AlertWordService.java`
+- `controller/api/v1/AlertWordController.java`
+- `dto/AlertWordDTO.java`
 
 ---
 
@@ -256,7 +276,7 @@
 | Markdown 渲染 | MarkdownService | ✅ |
 | @提及检测 | MarkdownService.detectMentions | ✅ |
 | 编辑历史 | Message.editHistory | ✅ |
-| Alert Word | AlertWordService | 🔄框架 |
+| Alert Word | AlertWordService | ✅ |
 | 私信多收件人 | 已实现 | ✅ |
 
 ---
