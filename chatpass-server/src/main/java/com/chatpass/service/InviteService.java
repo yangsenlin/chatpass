@@ -9,6 +9,7 @@ import com.chatpass.repository.RealmRepository;
 import com.chatpass.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ public class InviteService {
     private final RealmInviteRepository inviteRepository;
     private final UserProfileRepository userRepository;
     private final RealmRepository realmRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // 默认邀请链接有效期（天）
     private static final int DEFAULT_EXPIRE_DAYS = 7;
@@ -98,7 +100,7 @@ public class InviteService {
                 .realm(invite.getRealm())
                 .email(email)
                 .fullName(fullName)
-                .password(password) // TODO: 加密处理
+                .password(passwordEncoder.encode(password)) // 加密处理
                 .isActive(true)
                 .role(100) // 普通用户
                 .build();

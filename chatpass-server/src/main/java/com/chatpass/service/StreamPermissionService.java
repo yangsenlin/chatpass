@@ -1,8 +1,10 @@
 package com.chatpass.service;
 
 import com.chatpass.entity.Stream;
+import com.chatpass.entity.Subscription;
 import com.chatpass.entity.UserProfile;
 import com.chatpass.repository.StreamRepository;
+import com.chatpass.repository.SubscriptionRepository;
 import com.chatpass.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +28,7 @@ public class StreamPermissionService {
 
     private final StreamRepository streamRepository;
     private final UserProfileRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     /**
      * 检查用户是否可以访问频道
@@ -52,11 +56,10 @@ public class StreamPermissionService {
         Stream stream = streamRepository.findById(streamId)
                 .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
         
-        // TODO: 实现订阅关系查询
-        // 目前通过 Stream 的 subscribers 关系检查
-        // 简化实现：检查用户是否在频道成员列表中
-        
-        return true; // 简化实现
+        // 查询订阅关系
+        return subscriptionRepository.findByUserProfileIdAndStreamId(userId, streamId)
+                .map(Subscription::getActive)
+                .orElse(false);
     }
 
     /**
@@ -143,10 +146,13 @@ public class StreamPermissionService {
         Stream stream = streamRepository.findById(streamId)
                 .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
         
-        // TODO: 实现订阅关系查询
-        // 简化实现：返回 realm 的所有成员
+        // 查询频道的活跃订阅者
+        List<Subscription> subscriptions = subscriptionRepository.findByStreamIdAndActiveTrue(streamId);
         
-        return userRepository.findByRealmId(stream.getRealm().getId());
+        return subscriptions.stream()
+                .map(Subscription::getUserProfile)
+                .filter(UserProfile::getIsActive)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -160,8 +166,23 @@ public class StreamPermissionService {
         UserProfile user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
         
-        // TODO: 实现订阅关系添加
-        // 简化实现
+        // 检查是否已订阅
+        Optional<Subscription> existing = subscriptionRepository.findByUserProfileIdAndStreamId(userId, streamId);
+        
+        if (existing.isPresent()) {
+            // 激活现有订阅
+            Subscription sub = existing.get();
+            sub.setActive(true);
+            subscriptionRepository.save(sub);
+        } else {
+            // 创建新订阅
+            Subscription subscription = Subscription.builder()
+                    .stream(stream)
+                    .userProfile(user)
+                    .active(true)
+                    .build();
+            subscriptionRepository.save(subscription);
+        }
         
         log.info("Added user {} to stream {}", userId, streamId);
     }
@@ -177,8 +198,12 @@ public class StreamPermissionService {
         UserProfile user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
         
-        // TODO: 实现订阅关系移除
-        // 简化实现
+        // 取消订阅
+        subscriptionRepository.findByUserProfileIdAndStreamId(userId, streamId)
+                .ifPresent(sub -> {
+                    sub.setActive(false);
+                    subscriptionRepository.save(sub);
+                });
         
         log.info("Removed user {} from stream {}", userId, streamId);
     }
@@ -187,9 +212,6 @@ public class StreamPermissionService {
      * 获取频道的订阅者数量
      */
     public Long getStreamSubscriberCount(Long streamId) {
-        // TODO: 实现订阅关系统计
-        // 简化实现：返回成员数量
-        List<UserProfile> members = getStreamMembers(streamId);
-        return (long) members.size();
+        return subscriptionRepository.countActiveSubscribersByStreamId(streamId);
     }
 }

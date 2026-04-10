@@ -2,12 +2,14 @@ package com.chatpass.service;
 
 import com.chatpass.entity.Message;
 import com.chatpass.entity.Realm;
+import com.chatpass.entity.SearchHistory;
 import com.chatpass.entity.Stream;
 import com.chatpass.entity.UserProfile;
 import com.chatpass.repository.MessageRepository;
 import com.chatpass.repository.RealmRepository;
 import com.chatpass.repository.StreamRepository;
 import com.chatpass.repository.UserProfileRepository;
+import com.chatpass.repository.SearchHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,7 @@ public class SearchService {
     private final RealmRepository realmRepository;
     private final StreamRepository streamRepository;
     private final UserProfileRepository userRepository;
+    private final SearchHistoryRepository searchHistoryRepository;
 
     /**
      * 全局搜索消息（内容匹配）
@@ -139,13 +142,80 @@ public class SearchService {
      * 搜索历史记录（返回用户最近搜索过的关键词）
      */
     public Map<String, Object> getSearchHistory(Long userId, int limit) {
-        // TODO: 实现搜索历史存储
-        // 目前返回空列表
+        List<SearchHistory> history = searchHistoryRepository.findRecentByUserId(userId, limit);
+        
+        List<Map<String, Object>> recentSearches = history.stream()
+                .map(h -> Map.<String, Object>of(
+                        "query", h.getQuery(),
+                        "search_type", h.getSearchType() != null ? h.getSearchType() : "",
+                        "results_count", h.getResultsCount() != null ? h.getResultsCount() : 0,
+                        "date_searched", h.getDateSearched().toString()
+                ))
+                .collect(Collectors.toList());
+        
         return Map.of(
                 "user_id", userId,
-                "recent_searches", Collections.emptyList(),
-                "message", "搜索历史功能待实现"
+                "recent_searches", recentSearches
         );
+    }
+
+    /**
+     * 记录搜索历史
+     */
+    @Transactional
+    public void recordSearchHistory(Long userId, Long realmId, String query, String searchType, int resultsCount) {
+        SearchHistory history = SearchHistory.builder()
+                .userId(userId)
+                .realmId(realmId)
+                .query(query)
+                .searchType(searchType)
+                .resultsCount(resultsCount)
+                .dateSearched(LocalDateTime.now())
+                .build();
+        
+        searchHistoryRepository.save(history);
+    }
+
+    /**
+     * 获取热门搜索关键词
+     */
+    public List<Map<String, Object>> getPopularSearches(Long userId, int limit) {
+        List<Object[]> popular = searchHistoryRepository.findPopularQueriesByUserId(userId);
+        
+        return popular.stream()
+                .limit(limit)
+                .map(p -> Map.<String, Object>of(
+                        "query", (String) p[0],
+                        "count", ((Number) p[1]).longValue()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 清除搜索历史
+     */
+    @Transactional
+    public void clearSearchHistory(Long userId) {
+        searchHistoryRepository.deleteByUserId(userId);
+    }
+
+    /**
+     * 清除过期搜索历史（超过30天）
+     */
+    @Transactional
+    public int cleanupOldSearchHistory(Long userId) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+        List<SearchHistory> oldHistory = searchHistoryRepository.findByUserIdOrderByDateSearchedDesc(userId)
+                .stream()
+                .filter(h -> h.getDateSearched().isBefore(cutoff))
+                .collect(Collectors.toList());
+        
+        int count = oldHistory.size();
+        for (SearchHistory h : oldHistory) {
+            searchHistoryRepository.delete(h);
+        }
+        
+        return count;
     }
 
     /**

@@ -1,12 +1,16 @@
 package com.chatpass.service;
 
 import com.chatpass.dto.BotDTO;
+import com.chatpass.dto.MessageDTO;
 import com.chatpass.entity.Bot;
 import com.chatpass.entity.BotCommand;
+import com.chatpass.entity.Message;
+import com.chatpass.entity.Stream;
 import com.chatpass.entity.UserProfile;
 import com.chatpass.repository.BotRepository;
 import com.chatpass.repository.BotCommandRepository;
 import com.chatpass.repository.UserProfileRepository;
+import com.chatpass.repository.StreamRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +36,8 @@ public class BotService {
     private final UserProfileRepository userRepository;
     private final ObjectMapper objectMapper;
     private final AuditLogService auditLogService;
+    private final MessageService messageService;
+    private final StreamRepository streamRepository;
 
     /**
      * 创建 Bot
@@ -274,12 +280,22 @@ public class BotService {
             throw new IllegalStateException("Bot 已禁用");
         }
 
-        // TODO: 调用 MessageService 发送消息
-        // MessageService.sendMessage(bot.getBotUserId(), streamId, topic, content)
+        // 获取 Stream
+        Stream stream = streamRepository.findById(streamId)
+                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
+
+        // 调用 MessageService 发送消息
+        MessageDTO.Response messageResponse = messageService.sendStreamMessage(
+                stream.getRealm().getId(),
+                bot.getBotUserId(),
+                streamId,
+                topic,
+                content
+        );
 
         log.info("Bot {} sent message to stream {}", bot.getName(), streamId);
 
-        return bot.getBotUserId();
+        return messageResponse.getId();
     }
 
     /**
@@ -294,11 +310,20 @@ public class BotService {
             throw new IllegalStateException("Bot 已禁用");
         }
 
-        // TODO: 调用 MessageService 发送私信
+        UserProfile recipient = userRepository.findById(recipientId)
+                .orElseThrow(() -> new IllegalArgumentException("收件人不存在"));
+
+        // 调用 MessageService 发送私信
+        MessageDTO.Response messageResponse = messageService.sendDirectMessage(
+                bot.getRealmId(),
+                bot.getBotUserId(),
+                List.of(recipientId),
+                content
+        );
 
         log.info("Bot {} sent private message to user {}", bot.getName(), recipientId);
 
-        return bot.getBotUserId();
+        return messageResponse.getId();
     }
 
     /**

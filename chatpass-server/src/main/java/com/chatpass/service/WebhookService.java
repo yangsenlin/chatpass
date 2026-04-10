@@ -16,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -170,8 +171,17 @@ public class WebhookService {
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             // 添加自定义请求头
-            if (webhook.getRequestHeaders() != null) {
-                // TODO: 解析并添加自定义请求头
+            if (webhook.getRequestHeaders() != null && !webhook.getRequestHeaders().isEmpty()) {
+                try {
+                    // 解析 JSON 格式的自定义请求头
+                    Map<String, String> customHeaders = objectMapper.readValue(
+                            webhook.getRequestHeaders(), 
+                            Map.class
+                    );
+                    customHeaders.forEach(headers::add);
+                } catch (Exception e) {
+                    log.warn("Failed to parse custom headers: {}", e.getMessage());
+                }
             }
 
             // 构建请求体
@@ -222,7 +232,75 @@ public class WebhookService {
             // 重试逻辑
             if (logEntry.getRetryAttempt() < webhook.getRetryCount()) {
                 log.info("Retrying webhook {} (attempt {})", webhook.getName(), logEntry.getRetryAttempt() + 1);
-                // TODO: 实现重试机制
+                
+                // 保存需要的数据用于重试
+                final Webhook retryWebhook = webhook;
+                final String retryEventType = eventType;
+                final String retryRequestBody = logEntry.getRequestBody();
+                final String retryEventData = logEntry.getEventData();
+                final int retryAttempt = logEntry.getRetryAttempt() + 1;
+                final int retryDelayMs = retryWebhook.getRetryInterval() != null ? retryWebhook.getRetryInterval() * 1000 : 5000;
+                
+                // 异步重试
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        // 等待重试延迟
+                        Thread.sleep(retryDelayMs);
+                        
+                        // 创建重试日志
+                        WebhookLog retryLog = WebhookLog.builder()
+                                .webhook(retryWebhook)
+                                .eventType(retryEventType)
+                                .invokeTime(LocalDateTime.now())
+                                .retryAttempt(retryAttempt)
+                                .build();
+                        
+                        retryLog.setEventData(retryEventData);
+                        retryLog.setRequestUrl(retryWebhook.getWebhookUrl());
+                        retryLog.setRequestMethod(retryWebhook.getRequestMethod());
+                        
+                        // 发送请求
+                        HttpHeaders retryHeaders = new HttpHeaders();
+                        retryHeaders.setContentType(MediaType.APPLICATION_JSON);
+                        if (retryWebhook.getRequestHeaders() != null) {
+                            try {
+                                Map<String, String> customHeaders = objectMapper.readValue(
+                                        retryWebhook.getRequestHeaders(),
+                                        Map.class
+                                );
+                                customHeaders.forEach(retryHeaders::add);
+                            } catch (Exception ex) {
+                                log.warn("Failed to parse custom headers for retry: {}", ex.getMessage());
+                            }
+                        }
+                        
+                        HttpEntity<String> retryEntity = new HttpEntity<>(retryRequestBody, retryHeaders);
+                        
+                        long retryStartTime = System.currentTimeMillis();
+                        ResponseEntity<String> retryResponse = restTemplate.exchange(
+                                retryWebhook.getWebhookUrl(),
+                                HttpMethod.valueOf(retryWebhook.getRequestMethod()),
+                                retryEntity,
+                                String.class);
+                        long retryEndTime = System.currentTimeMillis();
+                        
+                        retryLog.setResponseStatus(retryResponse.getStatusCode().value());
+                        retryLog.setResponseBody(retryResponse.getBody());
+                        retryLog.setResponseTimeMs(retryEndTime - retryStartTime);
+                        retryLog.setResult(WebhookLog.RESULT_SUCCESS);
+                        
+                        // 更新成功统计
+                        retryWebhook.setLastResult("SUCCESS");
+                        retryWebhook.setSuccessCount(retryWebhook.getSuccessCount() + 1);
+                        webhookRepository.save(retryWebhook);
+                        
+                        logRepository.save(retryLog);
+                        
+                        log.info("Webhook {} retry succeeded", retryWebhook.getName());
+                    } catch (Exception retryEx) {
+                        log.error("Webhook {} retry failed: {}", retryWebhook.getName(), retryEx.getMessage());
+                    }
+                });
             }
         }
 

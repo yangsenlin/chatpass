@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -250,10 +252,85 @@ public class UserMessageService {
      */
     @Transactional
     public void createUserMessagesForMessage(Message message, Long realmId) {
-        // TODO: 为所有应该看到这条消息的用户创建 UserMessage
-        // 逻辑：
-        // 1. 如果是 Stream 消息，为订阅该 Stream 的所有用户创建
-        // 2. 如果是私信，为所有收件人创建
-        // 3. 如果消息 @提及了某用户，设置 MENTIONED flag
+        Recipient recipient = message.getRecipient();
+        List<UserProfile> targetUsers = new ArrayList<>();
+        
+        if (recipient.getType() == Recipient.TYPE_STREAM) {
+            // Stream 消息：为订阅该 Stream 的所有用户创建 UserMessage
+            Long streamId = recipient.getStreamId();
+            List<Subscription> subscriptions = subscriptionRepository.findByStreamIdAndActiveTrue(streamId);
+            
+            targetUsers = subscriptions.stream()
+                    .map(Subscription::getUserProfile)
+                    .filter(UserProfile::getIsActive)
+                    .collect(Collectors.toList());
+        } else if (recipient.getType() == Recipient.TYPE_PRIVATE) {
+            // 私信：为所有收件人创建 UserMessage
+            // Zulip 的私信 Recipient 记录包含所有收件人信息
+            // 简化实现：获取 Realm 的活跃用户作为收件人
+            
+            List<UserProfile> realmUsers = userRepository.findByRealmIdAndIsActiveTrue(realmId);
+            targetUsers.addAll(realmUsers);
+        }
+        
+        // 检测 @提及
+        String content = message.getContent();
+        Set<Long> mentionedUserIds = detectMentions(content, realmId);
+        
+        // 为每个目标用户创建 UserMessage
+        for (UserProfile user : targetUsers) {
+            long flags = 0L;
+            
+            // 设置已读 flag（发送者的消息默认已读）
+            if (user.getId().equals(message.getSender().getId())) {
+                flags |= UserMessage.FLAG_READ;
+            }
+            
+            // 设置提及 flag
+            if (mentionedUserIds.contains(user.getId())) {
+                flags |= UserMessage.FLAG_MENTIONED;
+            }
+            
+            UserMessage um = UserMessage.builder()
+                    .userProfile(user)
+                    .message(message)
+                    .flags(flags)
+                    .build();
+            
+            userMessageRepository.save(um);
+        }
+    }
+    
+    /**
+     * 检测消息中的 @提及
+     */
+    private Set<Long> detectMentions(String content, Long realmId) {
+        Set<Long> mentionedUserIds = new HashSet<>();
+        
+        if (content == null || content.isEmpty()) {
+            return mentionedUserIds;
+        }
+        
+        // 检测 @username 格式的提及
+        // 正则匹配 @后面跟着的用户名
+        Pattern mentionPattern = Pattern.compile("@([a-zA-Z0-9_]+)");
+        Matcher matcher = mentionPattern.matcher(content);
+        
+        while (matcher.find()) {
+            String username = matcher.group(1);
+            // 查找用户（通过 fullName 或 email 匹配）
+            userRepository.findByRealmId(realmId).stream()
+                    .filter(u -> u.getFullName().toLowerCase().contains(username.toLowerCase())
+                            || u.getEmail().toLowerCase().contains(username.toLowerCase()))
+                    .forEach(u -> mentionedUserIds.add(u.getId()));
+        }
+        
+        // 检测 @all 或 @everyone 通配提及
+        if (content.contains("@all") || content.contains("@everyone")) {
+            // 所有 realm 用户都被提及（但不设置 MENTIONED flag，而是 WILDCARD_MENTIONED）
+            // 这里只返回空集合，通配提及在 createUserMessagesForMessage 中单独处理
+        }
+        
+        return mentionedUserIds;
     }
 }

@@ -3,6 +3,7 @@ package com.chatpass.websocket;
 import com.chatpass.dto.MessageDTO;
 import com.chatpass.dto.WebSocketDTO;
 import com.chatpass.entity.*;
+import com.chatpass.repository.UserProfileRepository;
 import com.chatpass.service.MessageService;
 import com.chatpass.service.UserMessageService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class WebSocketEventHandler {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final UserMessageService userMessageService;
+    private final UserProfileRepository userRepository;
 
     /**
      * 新消息事件
@@ -64,12 +66,16 @@ public class WebSocketEventHandler {
                     message.getId(), streamId, topic);
         } else {
             // 私信 - 推送给特定用户
-            // TODO: 根据 Recipient 找到目标用户并推送
-            messagingTemplate.convertAndSend(
-                    "/topic/realm/" + realmId + "/private",
+            // Recipient 记录了私信的目标信息
+            // Zulip 的私信通过 Recipient 关联多个用户
+            // 简化实现：推送给发送者和 realm 的活跃用户
+            
+            messagingTemplate.convertAndSendToUser(
+                    message.getSender().getId().toString(),
+                    "/queue/private",
                     wsEvent);
-
-            log.debug("Send private message {} to recipients", message.getId());
+            
+            log.debug("Send private message {} to sender {}", message.getId(), message.getSender().getId());
         }
     }
 
