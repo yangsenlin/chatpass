@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -196,8 +197,10 @@ public class MessageService {
 
         String streamName = null;
         if (message.getIsChannelMessage() && message.getRecipient().getStreamId() != null) {
-            streamRepository.findById(message.getRecipient().getStreamId())
-                    .ifPresent(s -> streamName = s.getName());
+            Optional<Stream> streamOpt = streamRepository.findById(message.getRecipient().getStreamId());
+            if (streamOpt.isPresent()) {
+                streamName = streamOpt.get().getName();
+            }
         }
 
         return toResponse(message, streamName);
@@ -261,8 +264,10 @@ public class MessageService {
 
         String streamName = null;
         if (message.getIsChannelMessage() && streamId != null) {
-            streamRepository.findById(streamId)
-                    .ifPresent(s -> streamName = s.getName());
+            Optional<Stream> streamOpt = streamRepository.findById(streamId);
+            if (streamOpt.isPresent()) {
+                streamName = streamOpt.get().getName();
+            }
         }
 
         return toResponse(message, streamName);

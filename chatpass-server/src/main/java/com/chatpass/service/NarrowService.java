@@ -165,7 +165,7 @@ public class NarrowService {
             if (NarrowDTO.Operators.STREAM.equals(op)) {
                 // Stream 过滤
                 Stream stream = streamRepository.findByRealmIdAndName(ctx.realmId, filter.getOperand())
-                        .orElseThrow(() -> new ResourceNotFoundException("Stream", filter.getOperand()));
+                        .orElseThrow(() -> new ResourceNotFoundException("Stream not found: " + filter.getOperand()));
                 
                 Recipient recipient = recipientRepository.findStreamRecipient(stream.getId())
                         .orElseThrow(() -> new ResourceNotFoundException("Recipient for stream", stream.getId()));
@@ -264,8 +264,10 @@ public class NarrowService {
     private MessageDTO.Response toResponse(Message message, QueryContext ctx) {
         String streamName = null;
         if (message.getRecipient().getStreamId() != null) {
-            streamRepository.findById(message.getRecipient().getStreamId())
-                    .ifPresent(s -> streamName = s.getName());
+            Optional<Stream> streamOpt = streamRepository.findById(message.getRecipient().getStreamId());
+            if (streamOpt.isPresent()) {
+                streamName = streamOpt.get().getName();
+            }
         }
 
         return toResponseWithStreamName(message);
@@ -276,8 +278,10 @@ public class NarrowService {
         String streamName = null;
 
         if (message.getRecipient().getStreamId() != null) {
-            streamRepository.findById(message.getRecipient().getStreamId())
-                    .ifPresent(s -> streamName = s.getName());
+            Optional<Stream> streamOpt = streamRepository.findById(message.getRecipient().getStreamId());
+            if (streamOpt.isPresent()) {
+                streamName = streamOpt.get().getName();
+            }
         }
 
         return MessageDTO.Response.builder()

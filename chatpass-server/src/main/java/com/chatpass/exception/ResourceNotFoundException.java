@@ -16,13 +16,3 @@ public class ResourceNotFoundException extends RuntimeException {
         super(message);
     }
 }
-
-@Getter
-public class AuthenticationException extends RuntimeException {
-    
-    private final HttpStatus status = HttpStatus.UNAUTHORIZED;
-    
-    public AuthenticationException(String message) {
-        super(message);
-    }
-}

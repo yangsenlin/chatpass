@@ -1,7 +1,6 @@
 package com.chatpass.repository;
 
 import com.chatpass.entity.Message;
-import com.chatpass.entity.Recipient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,7 +41,4 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     
     @Query("SELECT m FROM Message m WHERE m.realm.id = :realmId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
     List<Message> searchByContent(@Param("realmId") Long realmId, @Param("query") String query);
-    
-    @Query("SELECT m FROM Message m WHERE m.sender.id = :senderId ORDER BY m.dateSent DESC")
-    List<Message> findBySenderIdOrderByDateSentDesc(@Param("senderId") Long senderId);
 }

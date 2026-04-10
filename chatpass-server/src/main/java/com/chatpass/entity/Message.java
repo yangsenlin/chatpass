@@ -107,7 +107,7 @@ public class Message {
     // Topic 名字 (便捷方法)
     public String getTopicName() {
         // DM 使用特殊字符，返回空字符串
-        if (Recipient.TYPE_PRIVATE == recipient.getType()) {
+        if (recipient != null && recipient.getType() != null && recipient.getType() == Recipient.TYPE_PRIVATE) {
             return "";
         }
         return subject;

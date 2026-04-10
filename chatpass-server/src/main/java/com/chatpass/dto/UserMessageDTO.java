@@ -12,10 +12,6 @@ import java.util.List;
  * 
  * 用户消息状态操作
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class UserMessageDTO {
 
     /**

@@ -14,10 +14,6 @@ import java.util.Map;
  * 
  * Zulip 实时推送事件格式
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class WebSocketDTO {
 
     /**

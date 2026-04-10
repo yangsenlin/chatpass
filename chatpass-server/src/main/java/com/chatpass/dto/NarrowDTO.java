@@ -13,10 +13,6 @@ import java.util.List;
  * Zulip 的消息过滤机制
  * 支持多种过滤条件组合
  */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class NarrowDTO {
 
     /**
