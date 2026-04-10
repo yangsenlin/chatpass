@@ -18,6 +18,21 @@ public interface ReactionRepository extends JpaRepository<Reaction, Long> {
     List<Reaction> findByMessageIdOrderByEmoji(@Param("messageId") Long messageId);
     
     @Query("SELECT r.emojiCode, COUNT(r) FROM Reaction r WHERE r.message.id = :messageId GROUP BY r.emojiCode")
+    List<Object[]> countByMessageIdGroupByEmoji(@Param("messageId") Long messageId);
+    
+    // Analytics statistics
+    
+    /**
+     * 统计 Realm 表情数
+     */
+    @Query("SELECT COUNT(r) FROM Reaction r WHERE r.message.realm.id = :realmId")
+    Long countByRealmId(@Param("realmId") Long realmId);
+    
+    /**
+     * 热门表情统计
+     */
+    @Query("SELECT r.emojiCode, COUNT(r) FROM Reaction r WHERE r.message.realm.id = :realmId AND r.dateCreated BETWEEN :start AND :end GROUP BY r.emojiCode ORDER BY COUNT(r) DESC")
+    List<Object[]> findTopReactions(@Param("realmId") Long realmId, @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end, @Param("limit") int limit);
     List<Object[]> countByMessageGroupByEmoji(@Param("messageId") Long messageId);
     
     Optional<Reaction> findByUserIdAndMessageIdAndEmojiCode(Long userId, Long messageId, String emojiCode);

@@ -18,6 +18,18 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, Long> 
     
     Optional<UserProfile> findByRealmIdAndEmail(Long realmId, String email);
     
+    /**
+     * 统计 Realm 用户数
+     */
+    @Query("SELECT COUNT(u) FROM UserProfile u WHERE u.realm.id = :realmId")
+    Long countByRealmId(@Param("realmId") Long realmId);
+    
+    /**
+     * 统计新用户数
+     */
+    @Query("SELECT COUNT(u) FROM UserProfile u WHERE u.realm.id = :realmId AND u.dateCreated BETWEEN :start AND :end")
+    Long countNewUsers(@Param("realmId") Long realmId, @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+    
     List<UserProfile> findByRealmId(Long realmId);
     
     List<UserProfile> findByRealmIdAndIsActiveTrue(Long realmId);

@@ -61,4 +61,48 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     
     @Query("SELECT m FROM Message m WHERE m.sender.id = :senderId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
     List<Message> searchBySenderIdAndContent(@Param("senderId") Long senderId, @Param("query") String query);
+    
+    // Analytics statistics
+    
+    /**
+     * 统计时间范围内消息数
+     */
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end")
+    Long countByRealmIdAndTimeRange(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    /**
+     * 平均消息长度
+     */
+    @Query("SELECT AVG(LENGTH(m.content)) FROM Message m WHERE m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end")
+    Double avgMessageLength(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    /**
+     * 统计 Stream 消息数
+     */
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.recipient.streamId = :streamId AND m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end")
+    Long countStreamMessages(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    /**
+     * 统计私信数
+     */
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.recipient.streamId IS NULL AND m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end")
+    Long countPrivateMessages(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    /**
+     * 小时分布统计
+     */
+    @Query("SELECT HOUR(m.dateSent), COUNT(m) FROM Message m WHERE m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end GROUP BY HOUR(m.dateSent) ORDER BY HOUR(m.dateSent)")
+    List<Object[]> hourlyDistribution(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    
+    /**
+     * 发送者统计
+     */
+    @Query("SELECT m.sender.id, COUNT(m) FROM Message m WHERE m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end GROUP BY m.sender.id ORDER BY COUNT(m) DESC")
+    List<Object[]> findTopSenders(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end, @Param("limit") int limit);
+    
+    /**
+     * Stream 统计
+     */
+    @Query("SELECT m.recipient.streamId, COUNT(m) FROM Message m WHERE m.realm.id = :realmId AND m.dateSent BETWEEN :start AND :end GROUP BY m.recipient.streamId ORDER BY COUNT(m) DESC")
+    List<Object[]> findTopStreams(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end, @Param("limit") int limit);
 }

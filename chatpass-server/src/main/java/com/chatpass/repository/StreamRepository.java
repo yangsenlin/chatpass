@@ -18,6 +18,18 @@ public interface StreamRepository extends JpaRepository<Stream, Long> {
     
     Optional<Stream> findByRealmIdAndId(Long realmId, Long id);
     
+    /**
+     * 统计 Realm Stream 数
+     */
+    @Query("SELECT COUNT(s) FROM Stream s WHERE s.realm.id = :realmId")
+    Long countByRealmId(@Param("realmId") Long realmId);
+    
+    /**
+     * 统计活跃 Stream 数
+     */
+    @Query("SELECT COUNT(s) FROM Stream s WHERE s.realm.id = :realmId AND s.deactivated = false")
+    Long countActiveStreams(@Param("realmId") Long realmId);
+    
     Optional<Stream> findByRealmIdAndName(Long realmId, String name);
     
     @Query("SELECT s FROM Stream s WHERE s.realm.id = :realmId AND s.inviteOnly = false AND s.deactivated = false")
