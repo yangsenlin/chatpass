@@ -1,8 +1,8 @@
 package com.chatpass.repository;
 
-import com.chatpass.entity.Message;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.chatpass.entity.Message;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -48,4 +48,17 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     
     @Query("SELECT m FROM Message m WHERE m.recipient.stream.id = :streamId ORDER BY m.dateSent")
     List<Message> findByStreamId(@Param("streamId") Long streamId);
+    
+    // 搜索增强支持
+    @Query("SELECT m FROM Message m WHERE m.realm.id = :realmId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
+    Page<Message> searchByContentPaged(@Param("realmId") Long realmId, @Param("query") String query, Pageable pageable);
+    
+    @Query("SELECT m FROM Message m WHERE m.recipient.stream.id = :streamId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
+    List<Message> searchByStreamIdAndContent(@Param("streamId") Long streamId, @Param("query") String query);
+    
+    @Query("SELECT m FROM Message m WHERE m.recipient.stream.id = :streamId AND m.subject = :topic AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
+    List<Message> searchByStreamIdTopicAndContent(@Param("streamId") Long streamId, @Param("topic") String topic, @Param("query") String query);
+    
+    @Query("SELECT m FROM Message m WHERE m.sender.id = :senderId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
+    List<Message> searchBySenderIdAndContent(@Param("senderId") Long senderId, @Param("query") String query);
 }
