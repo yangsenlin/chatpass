@@ -307,6 +307,8 @@ public class MessageService {
 
     // ==================== 辅助方法 ====================
 
+    private final AlertWordService alertWordService;
+
     /**
      * 为 Stream 消息创建 UserMessage
      */
@@ -329,6 +331,11 @@ public class MessageService {
             // 检测 @all/@everyone
             if (mentionResult.hasWildcardMention) {
                 flags |= UserMessage.FLAG_WILDCARD_MENTIONED;
+            }
+            
+            // 检测 Alert Words
+            if (alertWordService.containsAlertWord(user.getId(), message.getContent())) {
+                flags |= UserMessage.FLAG_HAS_ALERT_WORD;
             }
             
             // 发送者标记已读

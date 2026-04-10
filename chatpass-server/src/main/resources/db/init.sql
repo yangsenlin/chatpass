@@ -182,3 +182,22 @@ CREATE TABLE IF NOT EXISTS user_messages (
 
 CREATE INDEX IF NOT EXISTS idx_user_messages_user ON user_messages(user_profile_id);
 CREATE INDEX IF NOT EXISTS idx_user_messages_message ON user_messages(message_id);
+
+-- alert_words 表
+CREATE TABLE IF NOT EXISTS alert_words (
+    id SERIAL PRIMARY KEY,
+    user_profile_id BIGINT NOT NULL REFERENCES user_profiles(id),
+    realm_id BIGINT NOT NULL REFERENCES realms(id),
+    word VARCHAR(100) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    match_mode INTEGER DEFAULT 1,
+    notify_email BOOLEAN DEFAULT false,
+    notify_push BOOLEAN DEFAULT true,
+    notify_desktop BOOLEAN DEFAULT true,
+    date_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uniq_user_word UNIQUE (user_profile_id, word)
+);
+
+CREATE INDEX IF NOT EXISTS idx_alert_words_user ON alert_words(user_profile_id);
+CREATE INDEX IF NOT EXISTS idx_alert_words_realm ON alert_words(realm_id);
