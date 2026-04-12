@@ -1,111 +1,128 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
-import com.chatpass.dto.TopicDTO;
+import com.chatpass.dto.MessageDTO;
 import com.chatpass.service.TopicService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Topic 控制器
- * 
- * 话题管理 API
+ * 话题管理控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Topics", description = "话题管理 API")
+@Slf4j
 public class TopicController {
-
+    
     private final TopicService topicService;
-
+    
+    /**
+     * 获取Stream的所有话题
+     */
     @GetMapping("/streams/{streamId}/topics")
-    @Operation(summary = "获取频道的话题列表")
-    public ResponseEntity<ApiResponse<List<String>>> getStreamTopics(@PathVariable Long streamId) {
+    public ResponseEntity<List<String>> getStreamTopics(@PathVariable Long streamId) {
         List<String> topics = topicService.getStreamTopics(streamId);
-        
-        return ResponseEntity.ok(ApiResponse.success(topics));
+        return ResponseEntity.ok(topics);
     }
-
+    
+    /**
+     * 获取话题统计
+     */
     @GetMapping("/streams/{streamId}/topics/stats")
-    @Operation(summary = "获取频道的话题统计")
-    public ResponseEntity<ApiResponse<Map<String, Long>>> getStreamTopicStats(@PathVariable Long streamId) {
-        Map<String, Long> stats = topicService.getStreamTopicStats(streamId);
-        
-        return ResponseEntity.ok(ApiResponse.success(stats));
+    public ResponseEntity<Map<String, Long>> getTopicStats(@PathVariable Long streamId) {
+        Map<String, Long> stats = topicService.getTopicStats(streamId);
+        return ResponseEntity.ok(stats);
     }
-
-    @GetMapping("/streams/{streamId}/topics/hot")
-    @Operation(summary = "获取热门话题")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getHotTopics(
-            @PathVariable Long streamId,
-            @RequestParam(defaultValue = "10") int limit) {
-        List<Map<String, Object>> hotTopics = topicService.getHotTopics(streamId, limit);
-        
-        return ResponseEntity.ok(ApiResponse.success(hotTopics));
-    }
-
+    
+    /**
+     * 重命名话题
+     */
     @PostMapping("/streams/{streamId}/topics/rename")
-    @Operation(summary = "重命名话题")
-    public ResponseEntity<ApiResponse<TopicDTO.RenameResponse>> renameTopic(
+    public ResponseEntity<Integer> renameTopic(
             @PathVariable Long streamId,
-            @RequestBody TopicDTO.RenameRequest request) {
-        int count = topicService.renameTopic(streamId, request.getOldTopic(), request.getNewTopic());
+            @RequestParam String oldTopic,
+            @RequestParam String newTopic) {
         
-        return ResponseEntity.ok(ApiResponse.success(TopicDTO.RenameResponse.builder()
-                .streamId(streamId)
-                .oldTopic(request.getOldTopic())
-                .newTopic(request.getNewTopic())
-                .messagesUpdated(count)
-                .build()));
+        int count = topicService.renameTopic(streamId, oldTopic, newTopic);
+        return ResponseEntity.ok(count);
     }
-
+    
+    /**
+     * 合并话题
+     */
     @PostMapping("/streams/{streamId}/topics/merge")
-    @Operation(summary = "合并话题")
-    public ResponseEntity<ApiResponse<TopicDTO.MergeResponse>> mergeTopic(
+    public ResponseEntity<Integer> mergeTopics(
             @PathVariable Long streamId,
-            @RequestBody TopicDTO.MergeRequest request) {
-        int count = topicService.mergeTopic(streamId, request.getSourceTopic(), request.getTargetTopic());
+            @RequestParam List<String> sourceTopics,
+            @RequestParam String targetTopic) {
         
-        return ResponseEntity.ok(ApiResponse.success(TopicDTO.MergeResponse.builder()
-                .streamId(streamId)
-                .sourceTopic(request.getSourceTopic())
-                .targetTopic(request.getTargetTopic())
-                .messagesMoved(count)
-                .build()));
+        int count = topicService.mergeTopics(streamId, sourceTopics, targetTopic);
+        return ResponseEntity.ok(count);
     }
-
-    @GetMapping("/streams/{streamId}/topics/search")
-    @Operation(summary = "搜索话题")
-    public ResponseEntity<ApiResponse<List<String>>> searchTopics(
+    
+    /**
+     * 拆分话题
+     */
+    @PostMapping("/streams/{streamId}/topics/split")
+    public ResponseEntity<Integer> splitTopic(
             @PathVariable Long streamId,
-            @RequestParam String query) {
-        List<String> topics = topicService.searchTopics(streamId, query);
+            @RequestParam String sourceTopic,
+            @RequestParam String newTopic,
+            @RequestParam List<Long> messageIds) {
         
-        return ResponseEntity.ok(ApiResponse.success(topics));
+        int count = topicService.splitTopic(streamId, sourceTopic, newTopic, messageIds);
+        return ResponseEntity.ok(count);
     }
-
-    @GetMapping("/streams/{streamId}/topics/{topic}/info")
-    @Operation(summary = "获取话题详情")
-    public ResponseEntity<ApiResponse<TopicDTO.InfoResponse>> getTopicInfo(
+    
+    /**
+     * 获取话题的最新消息
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/latest")
+    public ResponseEntity<MessageDTO.Response> getTopicLatestMessage(
             @PathVariable Long streamId,
             @PathVariable String topic) {
-        Long messageCount = topicService.getTopicMessageCount(streamId, topic);
-        String lastMessageTime = topicService.getTopicLastMessageTime(streamId, topic) != null
-                ? topicService.getTopicLastMessageTime(streamId, topic).toString()
-                : "never";
         
-        return ResponseEntity.ok(ApiResponse.success(TopicDTO.InfoResponse.builder()
-                .streamId(streamId)
-                .topic(topic)
-                .messageCount(messageCount)
-                .lastMessageTime(lastMessageTime)
-                .build()));
+        return topicService.getTopicLatestMessage(streamId, topic)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    /**
+     * 获取话题的参与者
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/participants")
+    public ResponseEntity<Set<Long>> getTopicParticipants(
+            @PathVariable Long streamId,
+            @PathVariable String topic) {
+        
+        Set<Long> participants = topicService.getTopicParticipants(streamId, topic);
+        return ResponseEntity.ok(participants);
+    }
+    
+    /**
+     * 搜索话题
+     */
+    @GetMapping("/streams/{streamId}/topics/search")
+    public ResponseEntity<List<String>> searchTopics(
+            @PathVariable Long streamId,
+            @RequestParam(required = false) String keyword) {
+        
+        List<String> topics = topicService.searchTopics(streamId, keyword);
+        return ResponseEntity.ok(topics);
+    }
+    
+    /**
+     * 解析话题名称
+     */
+    @PostMapping("/topics/parse")
+    public ResponseEntity<String> parseTopic(@RequestParam String content) {
+        String topic = topicService.parseTopic(content);
+        return ResponseEntity.ok(topic);
     }
 }

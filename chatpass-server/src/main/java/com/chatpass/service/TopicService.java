@@ -1,195 +1,199 @@
 package com.chatpass.service;
 
+import com.chatpass.dto.MessageDTO;
 import com.chatpass.entity.Message;
-import com.chatpass.entity.Recipient;
-import com.chatpass.entity.Stream;
 import com.chatpass.repository.MessageRepository;
-import com.chatpass.repository.RecipientRepository;
-import com.chatpass.repository.StreamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * TopicService
- * 
  * 话题管理服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TopicService {
-
+    
     private final MessageRepository messageRepository;
-    private final RecipientRepository recipientRepository;
-    private final StreamRepository streamRepository;
-
+    
     /**
-     * 重命名话题
-     * 
-     * 将 Stream 中某话题的所有消息改为新话题名
+     * 解析话题名称（自动提取）
      */
-    @Transactional
-    public int renameTopic(Long streamId, String oldTopic, String newTopic) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        if (oldTopic == null || oldTopic.trim().isEmpty()) {
-            throw new IllegalArgumentException("原话题名称不能为空");
+    public String parseTopic(String content) {
+        if (content == null || content.isEmpty()) {
+            return null;
         }
         
-        if (newTopic == null || newTopic.trim().isEmpty()) {
-            throw new IllegalArgumentException("新话题名称不能为空");
+        // 简单的话题提取逻辑：查找第一个话题标记
+        // Zulip 格式: #**topic name** 或直接使用 subject 字段
+        
+        // 查找 #**...** 格式
+        int start = content.indexOf("#**");
+        if (start >= 0) {
+            int end = content.indexOf("**", start + 3);
+            if (end > start) {
+                return content.substring(start + 3, end);
+            }
         }
         
-        // 获取该 Stream + Topic 的所有消息
-        List<Message> messages = messageRepository.findByStreamIdAndTopic(streamId, oldTopic);
-        
-        if (messages.isEmpty()) {
-            log.warn("No messages found for topic {} in stream {}", oldTopic, streamId);
-            return 0;
-        }
-        
-        // 更新所有消息的 subject
-        int count = 0;
-        for (Message message : messages) {
-            message.setSubject(newTopic);
-            messageRepository.save(message);
-            count++;
-        }
-        
-        log.info("Renamed topic '{}' to '{}' in stream {}, updated {} messages", 
-                oldTopic, newTopic, streamId, count);
-        
-        return count;
+        return null;
     }
-
+    
     /**
-     * 合并话题
-     * 
-     * 将源话题的所有消息合并到目标话题
-     */
-    @Transactional
-    public int mergeTopic(Long streamId, String sourceTopic, String targetTopic) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        if (sourceTopic.equals(targetTopic)) {
-            throw new IllegalArgumentException("源话题和目标话题不能相同");
-        }
-        
-        // 获取源话题的所有消息
-        List<Message> messages = messageRepository.findByStreamIdAndTopic(streamId, sourceTopic);
-        
-        if (messages.isEmpty()) {
-            log.warn("No messages found for source topic {}", sourceTopic);
-            return 0;
-        }
-        
-        // 更新所有消息到目标话题
-        int count = 0;
-        for (Message message : messages) {
-            message.setSubject(targetTopic);
-            messageRepository.save(message);
-            count++;
-        }
-        
-        log.info("Merged topic '{}' to '{}' in stream {}, moved {} messages", 
-                sourceTopic, targetTopic, streamId, count);
-        
-        return count;
-    }
-
-    /**
-     * 获取频道的话题列表
+     * 获取Stream的所有话题
      */
     public List<String> getStreamTopics(Long streamId) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        List<Message> messages = messageRepository.findByStreamId(streamId);
+        List<Message> messages = messageRepository.findByRecipient_Stream_IdOrderByDateSentDesc(streamId);
         
         return messages.stream()
+                .filter(m -> m.getSubject() != null && !m.getSubject().isEmpty())
                 .map(Message::getSubject)
-                .filter(t -> t != null && !t.trim().isEmpty())
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
     }
-
+    
     /**
-     * 获取频道的话题统计
+     * 获取话题的消息数量
      */
-    public Map<String, Long> getStreamTopicStats(Long streamId) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        List<Message> messages = messageRepository.findByStreamId(streamId);
+    public Map<String, Long> getTopicStats(Long streamId) {
+        List<Message> messages = messageRepository.findByRecipient_Stream_IdOrderByDateSentDesc(streamId);
         
         return messages.stream()
-                .filter(m -> m.getSubject() != null && !m.getSubject().trim().isEmpty())
+                .filter(m -> m.getSubject() != null && !m.getSubject().isEmpty())
                 .collect(Collectors.groupingBy(
-                        Message::getSubject,
-                        Collectors.counting()
+                    Message::getSubject,
+                    Collectors.counting()
                 ));
     }
-
+    
     /**
-     * 获取热门话题（消息数最多）
+     * 重命名话题
      */
-    public List<Map<String, Object>> getHotTopics(Long streamId, int limit) {
-        Map<String, Long> stats = getStreamTopicStats(streamId);
+    @Transactional
+    public int renameTopic(Long streamId, String oldTopic, String newTopic) {
+        List<Message> messages = messageRepository.findByRecipient_Stream_IdAndSubject(streamId, oldTopic);
         
-        return stats.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                .limit(limit)
-                .map(e -> Map.<String, Object>of(
-                        "topic", e.getKey(),
-                        "message_count", e.getValue()
-                ))
-                .collect(Collectors.toList());
+        if (messages.isEmpty()) {
+            throw new IllegalArgumentException("话题不存在: " + oldTopic);
+        }
+        
+        // 检查新话题是否已存在
+        boolean newTopicExists = messageRepository.findByRecipient_Stream_IdAndSubject(streamId, newTopic)
+                .stream()
+                .findAny()
+                .isPresent();
+        
+        if (newTopicExists) {
+            throw new IllegalArgumentException("目标话题已存在: " + newTopic);
+        }
+        
+        // 更新所有消息的话题
+        messages.forEach(m -> m.setSubject(newTopic));
+        messageRepository.saveAll(messages);
+        
+        log.info("重命名话题: {} -> {} (streamId: {}, count: {})", 
+                 oldTopic, newTopic, streamId, messages.size());
+        
+        return messages.size();
     }
-
+    
     /**
-     * 搜索话题（模糊匹配）
+     * 合并话题
      */
-    public List<String> searchTopics(Long streamId, String query) {
+    @Transactional
+    public int mergeTopics(Long streamId, List<String> sourceTopics, String targetTopic) {
+        int count = 0;
+        
+        for (String sourceTopic : sourceTopics) {
+            List<Message> messages = messageRepository.findByRecipient_Stream_IdAndSubject(streamId, sourceTopic);
+            
+            if (!messages.isEmpty()) {
+                messages.forEach(m -> m.setSubject(targetTopic));
+                messageRepository.saveAll(messages);
+                count += messages.size();
+                
+                log.info("合并话题: {} -> {} (count: {})", sourceTopic, targetTopic, messages.size());
+            }
+        }
+        
+        return count;
+    }
+    
+    /**
+     * 拆分话题（将指定消息移动到新话题）
+     */
+    @Transactional
+    public int splitTopic(Long streamId, String sourceTopic, String newTopic, List<Long> messageIds) {
+        List<Message> messages = messageRepository.findAllById(messageIds);
+        
+        // 验证消息属于该话题
+        messages.forEach(m -> {
+            if (!m.getRecipient().getStreamId().equals(streamId) ||
+                !m.getSubject().equals(sourceTopic)) {
+                throw new IllegalArgumentException("消息不属于该话题");
+            }
+        });
+        
+        // 移动到新话题
+        messages.forEach(m -> m.setSubject(newTopic));
+        messageRepository.saveAll(messages);
+        
+        log.info("拆分话题: {} -> {} (messageIds: {})", sourceTopic, newTopic, messageIds);
+        
+        return messages.size();
+    }
+    
+    /**
+     * 获取话题详情（最新消息）
+     */
+    public Optional<MessageDTO.Response> getTopicLatestMessage(Long streamId, String topic) {
+        List<Message> messages = messageRepository.findByRecipient_Stream_IdAndSubjectOrderByDateSentDesc(streamId, topic);
+        
+        if (messages.isEmpty()) {
+            return Optional.empty();
+        }
+        
+        Message latest = messages.get(0);
+        // 这里需要调用 MessageService 的转换方法
+        // 暂时返回简化信息
+        return Optional.of(MessageDTO.Response.builder()
+                .id(latest.getId())
+                .subject(latest.getSubject())
+                .content(latest.getContent())
+                .dateSent(latest.getDateSent())
+                .build());
+    }
+    
+    /**
+     * 获取话题的参与者
+     */
+    public Set<Long> getTopicParticipants(Long streamId, String topic) {
+        List<Message> messages = messageRepository.findByRecipient_Stream_IdAndSubject(streamId, topic);
+        
+        return messages.stream()
+                .map(Message::getSender)
+                .map(sender -> sender.getId())
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * 搜索话题
+     */
+    public List<String> searchTopics(Long streamId, String keyword) {
         List<String> topics = getStreamTopics(streamId);
         
-        if (query == null || query.trim().isEmpty()) {
+        if (keyword == null || keyword.isEmpty()) {
             return topics;
         }
         
-        String lowerQuery = query.toLowerCase();
-        
         return topics.stream()
-                .filter(t -> t.toLowerCase().contains(lowerQuery))
+                .filter(t -> t.toLowerCase().contains(keyword.toLowerCase()))
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * 获取话题的最新消息时间
-     */
-    public java.time.LocalDateTime getTopicLastMessageTime(Long streamId, String topic) {
-        List<Message> messages = messageRepository.findByStreamIdAndTopic(streamId, topic);
-        
-        return messages.stream()
-                .map(Message::getDateSent)
-                .max(java.time.LocalDateTime::compareTo)
-                .orElse(null);
-    }
-
-    /**
-     * 获取话题的消息总数
-     */
-    public Long getTopicMessageCount(Long streamId, String topic) {
-        List<Message> messages = messageRepository.findByStreamIdAndTopic(streamId, topic);
-        
-        return (long) messages.size();
     }
 }

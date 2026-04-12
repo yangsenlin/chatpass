@@ -49,6 +49,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("SELECT m FROM Message m WHERE m.recipient.stream.id = :streamId ORDER BY m.dateSent")
     List<Message> findByStreamId(@Param("streamId") Long streamId);
     
+    // Topic 管理支持
+    @Query("SELECT m FROM Message m WHERE m.recipient.streamId = :streamId ORDER BY m.dateSent DESC")
+    List<Message> findByRecipient_Stream_IdOrderByDateSentDesc(@Param("streamId") Long streamId);
+    
+    @Query("SELECT m FROM Message m WHERE m.recipient.streamId = :streamId AND m.subject = :subject")
+    List<Message> findByRecipient_Stream_IdAndSubject(@Param("streamId") Long streamId, @Param("subject") String subject);
+    
+    @Query("SELECT m FROM Message m WHERE m.recipient.streamId = :streamId AND m.subject = :subject ORDER BY m.dateSent DESC")
+    List<Message> findByRecipient_Stream_IdAndSubjectOrderByDateSentDesc(@Param("streamId") Long streamId, @Param("subject") String subject);
+    
     // 搜索增强支持
     @Query("SELECT m FROM Message m WHERE m.realm.id = :realmId AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%')) ORDER BY m.dateSent DESC")
     Page<Message> searchByContentPaged(@Param("realmId") Long realmId, @Param("query") String query, Pageable pageable);

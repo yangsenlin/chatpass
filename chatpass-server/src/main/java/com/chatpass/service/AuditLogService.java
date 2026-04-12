@@ -1,322 +1,238 @@
 package com.chatpass.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.chatpass.dto.AuditLogDTO;
 import com.chatpass.entity.AuditLog;
-import com.chatpass.entity.UserProfile;
 import com.chatpass.repository.AuditLogRepository;
-import com.chatpass.repository.UserProfileRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * AuditLogService
- * 
- * 审计日志管理服务
+ * 审计日志服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuditLogService {
-
-    // 资源类型常量（用于审计日志）
-    public static final String RESOURCE_MESSAGE = "MESSAGE";
-    public static final String RESOURCE_STREAM = "STREAM";
-    public static final String RESOURCE_USER = "USER";
-    public static final String RESOURCE_USER_GROUP = "USER_GROUP";
-    public static final String RESOURCE_INVITE = "INVITE";
-    public static final String RESOURCE_REACTION = "REACTION";
-    public static final String RESOURCE_UPLOAD = "UPLOAD";
-    public static final String RESOURCE_EMOJI = "EMOJI";
-    public static final String RESOURCE_STAR = "STAR";
-    public static final String RESOURCE_BOT = "BOT";
-    public static final String RESOURCE_WEBHOOK = "WEBHOOK";
-
+    
+    public static final String RESOURCE_USER = "user";
+    public static final String RESOURCE_MESSAGE = "message";
+    public static final String RESOURCE_STREAM = "stream";
+    public static final String RESOURCE_BOT = "bot";
+    
     private final AuditLogRepository auditLogRepository;
-    private final UserProfileRepository userRepository;
     private final ObjectMapper objectMapper;
-
+    
     /**
      * 记录操作日志
      */
     @Transactional
-    public AuditLog log(Long userId, String eventType, String description, 
-                        String resourceType, Long resourceId, 
-                        Object oldValue, Object newValue,
-                        String ipAddress, String userAgent) {
-        UserProfile user = userRepository.findById(userId).orElse(null);
+    public void logEvent(Long actorId, String eventType, Long realmId, 
+                         String objectType, Long objectId, Map<String, Object> extraData,
+                         String ipAddress, String userAgent, String result, String errorMessage) {
         
         AuditLog auditLog = AuditLog.builder()
-                .userId(userId)
-                .userName(user != null ? user.getFullName() : "Unknown")
+                .actorId(actorId)
                 .eventType(eventType)
-                .eventDescription(description)
-                .resourceType(resourceType)
-                .resourceId(resourceId)
+                .eventTime(LocalDateTime.now())
+                .realmId(realmId)
+                .objectType(objectType)
+                .objectId(objectId)
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)
-                .realmId(user != null ? user.getRealm().getId() : null)
-                .requestId(UUID.randomUUID().toString())
-                .result(AuditLog.RESULT_SUCCESS)
+                .result(result != null ? result : "success")
+                .errorMessage(errorMessage)
                 .build();
-
-        // 序列化 old/new value
-        if (oldValue != null) {
+        
+        // 转换extraData为JSON字符串
+        if (extraData != null && !extraData.isEmpty()) {
             try {
-                auditLog.setOldValue(objectMapper.writeValueAsString(oldValue));
+                auditLog.setExtraData(objectMapper.writeValueAsString(extraData));
             } catch (Exception e) {
-                log.warn("Failed to serialize old value: {}", e.getMessage());
+                log.warn("Failed to serialize extra data: {}", e.getMessage());
             }
         }
-        if (newValue != null) {
-            try {
-                auditLog.setNewValue(objectMapper.writeValueAsString(newValue));
-            } catch (Exception e) {
-                log.warn("Failed to serialize new value: {}", e.getMessage());
-            }
-        }
-
-        auditLog = auditLogRepository.save(auditLog);
-
-        log.debug("Audit log created: {} by user {}", eventType, userId);
-
-        return auditLog;
+        
+        auditLogRepository.save(auditLog);
+        log.info("审计日志: {} (actor={}, realm={})", eventType, actorId, realmId);
     }
-
+    
     /**
      * 记录成功操作
      */
     @Transactional
-    public AuditLog logSuccess(Long userId, String eventType, String description,
-                               String resourceType, Long resourceId) {
-        return log(userId, eventType, description, resourceType, resourceId, null, null, null, null);
+    public void logSuccess(Long actorId, String eventType, Long realmId,
+                           String objectType, Long objectId, Map<String, Object> extraData,
+                           String ipAddress) {
+        logEvent(actorId, eventType, realmId, objectType, objectId, extraData, 
+                 ipAddress, null, "success", null);
     }
-
+    
     /**
      * 记录失败操作
      */
     @Transactional
-    public AuditLog logFailure(Long userId, String eventType, String description,
-                               String resourceType, Long resourceId, String errorMessage) {
-        UserProfile user = userRepository.findById(userId).orElse(null);
-        
-        AuditLog auditLog = AuditLog.builder()
-                .userId(userId)
-                .userName(user != null ? user.getFullName() : "Unknown")
-                .eventType(eventType)
-                .eventDescription(description)
-                .resourceType(resourceType)
-                .resourceId(resourceId)
-                .realmId(user != null ? user.getRealm().getId() : null)
-                .requestId(UUID.randomUUID().toString())
-                .result(AuditLog.RESULT_FAILURE)
-                .errorMessage(errorMessage)
-                .build();
-
-        auditLog = auditLogRepository.save(auditLog);
-
-        log.warn("Audit log (failure): {} by user {} - {}", eventType, userId, errorMessage);
-
-        return auditLog;
+    public void logFailure(Long actorId, String eventType, Long realmId,
+                           String objectType, Long objectId, String errorMessage,
+                           String ipAddress) {
+        logEvent(actorId, eventType, realmId, objectType, objectId, null,
+                 ipAddress, null, "failure", errorMessage);
     }
-
+    
     /**
-     * 记录登录日志
+     * 获取组织的审计日志
      */
-    @Transactional
-    public AuditLog logLogin(Long userId, String ipAddress, String userAgent, boolean success) {
-        UserProfile user = userRepository.findById(userId).orElse(null);
-        
-        AuditLog auditLog = AuditLog.builder()
-                .userId(userId)
-                .userName(user != null ? user.getFullName() : "Unknown")
-                .eventType(AuditLog.TYPE_LOGIN)
-                .eventDescription("User login")
-                .resourceType(AuditLog.RESOURCE_USER)
-                .resourceId(userId)
-                .ipAddress(ipAddress)
-                .userAgent(userAgent)
-                .realmId(user != null ? user.getRealm().getId() : null)
-                .requestId(UUID.randomUUID().toString())
-                .result(success ? AuditLog.RESULT_SUCCESS : AuditLog.RESULT_FAILURE)
-                .build();
-
-        auditLog = auditLogRepository.save(auditLog);
-
-        log.info("Login audit log: user {} from {}", userId, ipAddress);
-
-        return auditLog;
+    public List<AuditLogDTO> getLogsByRealm(Long realmId, int limit) {
+        return auditLogRepository.findRecentLogs(realmId, limit)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
-
-    /**
-     * 记录消息发送日志
-     */
-    @Transactional
-    public AuditLog logMessageSend(Long userId, Long messageId, String contentPreview) {
-        return log(userId, AuditLog.TYPE_SEND, "Send message: " + contentPreview,
-                   AuditLog.RESOURCE_MESSAGE, messageId, null, null, null, null);
-    }
-
-    /**
-     * 记录资源创建日志
-     */
-    @Transactional
-    public AuditLog logCreate(Long userId, String resourceType, Long resourceId, Object newValue) {
-        return log(userId, AuditLog.TYPE_CREATE, "Create " + resourceType,
-                   resourceType, resourceId, null, newValue, null, null);
-    }
-
-    /**
-     * 记录资源更新日志
-     */
-    @Transactional
-    public AuditLog logUpdate(Long userId, String resourceType, Long resourceId, 
-                              Object oldValue, Object newValue) {
-        return log(userId, AuditLog.TYPE_UPDATE, "Update " + resourceType,
-                   resourceType, resourceId, oldValue, newValue, null, null);
-    }
-
-    /**
-     * 记录资源删除日志
-     */
-    @Transactional
-    public AuditLog logDelete(Long userId, String resourceType, Long resourceId, Object oldValue) {
-        return log(userId, AuditLog.TYPE_DELETE, "Delete " + resourceType,
-                   resourceType, resourceId, oldValue, null, null, null);
-    }
-
+    
     /**
      * 获取用户操作日志
      */
-    public List<AuditLog> getUserLogs(Long userId) {
-        return auditLogRepository.findByUserId(userId);
+    public List<AuditLogDTO> getLogsByUser(Long actorId) {
+        return auditLogRepository.findByActorIdOrderByEventTimeDesc(actorId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
-
+    
+    /**
+     * 获取特定事件类型的日志
+     */
+    public List<AuditLogDTO> getLogsByType(Long realmId, String eventType) {
+        return auditLogRepository.findByRealmIdAndEventTypeOrderByEventTimeDesc(realmId, eventType)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+    
     /**
      * 获取时间范围内的日志
      */
-    public List<AuditLog> getLogsByTimeRange(LocalDateTime start, LocalDateTime end) {
-        return auditLogRepository.findByTimeRange(start, end);
+    public List<AuditLogDTO> getLogsByTimeRange(Long realmId, LocalDateTime start, LocalDateTime end) {
+        return auditLogRepository.findByRealmIdAndTimeRange(realmId, start, end)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
-
+    
     /**
-     * 获取特定资源的日志
+     * 获取对象的操作历史
      */
-    public List<AuditLog> getResourceLogs(String resourceType, Long resourceId) {
-        return auditLogRepository.findByResource(resourceType, resourceId);
+    public List<AuditLogDTO> getObjectHistory(String objectType, Long objectId) {
+        return auditLogRepository.findByObjectTypeAndObjectIdOrderByEventTimeDesc(objectType, objectId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
-
+    
     /**
-     * 获取失败日志
+     * 获取日志统计
      */
-    public List<AuditLog> getFailedLogs() {
-        return auditLogRepository.findFailedLogs();
+    public Map<String, Object> getStats(Long realmId, LocalDateTime since) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        long totalEvents = auditLogRepository.countByRealmIdSince(realmId, since);
+        stats.put("total_events", totalEvents);
+        
+        // 常见事件类型统计
+        String[] commonTypes = {"user_created", "message_sent", "stream_created", "user_login"};
+        for (String type : commonTypes) {
+            stats.put(type + "_count", auditLogRepository.countByRealmIdAndEventType(realmId, type));
+        }
+        
+        return stats;
     }
-
+    
     /**
-     * 获取最近日志
+     * 获取日志详情
      */
-    public List<AuditLog> getRecentLogs(int limit) {
-        return auditLogRepository.findRecentLogs(limit);
+    public AuditLogDTO getLogById(Long logId) {
+        return auditLogRepository.findById(logId)
+                .map(this::toDTO)
+                .orElse(null);
     }
-
+    
     /**
-     * 搜索日志
+     * 便捷方法：记录创建操作
      */
-    public List<AuditLog> searchLogs(String query) {
-        return auditLogRepository.searchByDescription(query);
+    @Transactional
+    public void logCreate(Long actorId, String objectType, Long objectId, Object object) {
+        Map<String, Object> extraData = new HashMap<>();
+        extraData.put("action", "create");
+        extraData.put("object_type", objectType);
+        
+        try {
+            extraData.put("object", objectMapper.writeValueAsString(object));
+        } catch (Exception e) {
+            log.warn("Failed to serialize object: {}", e.getMessage());
+        }
+        
+        logSuccess(actorId, objectType + "_created", null, objectType, objectId, extraData, null);
     }
-
+    
     /**
-     * 统计用户操作次数
+     * 便捷方法：记录更新操作
      */
-    public Long countUserLogs(Long userId) {
-        return auditLogRepository.countByUserId(userId);
+    @Transactional
+    public void logUpdate(Long actorId, String objectType, Long objectId, Object oldObject, Object newObject) {
+        Map<String, Object> extraData = new HashMap<>();
+        extraData.put("action", "update");
+        extraData.put("object_type", objectType);
+        
+        try {
+            extraData.put("old_object", objectMapper.writeValueAsString(oldObject));
+            extraData.put("new_object", objectMapper.writeValueAsString(newObject));
+        } catch (Exception e) {
+            log.warn("Failed to serialize objects: {}", e.getMessage());
+        }
+        
+        logSuccess(actorId, objectType + "_updated", null, objectType, objectId, extraData, null);
     }
-
+    
     /**
-     * 统计失败操作次数
+     * 便捷方法：记录删除操作
      */
-    public Long countFailedLogs(int hours) {
-        LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        return auditLogRepository.countFailedSince(since);
+    @Transactional
+    public void logDelete(Long actorId, String objectType, Long objectId, Object object) {
+        Map<String, Object> extraData = new HashMap<>();
+        extraData.put("action", "delete");
+        extraData.put("object_type", objectType);
+        
+        try {
+            extraData.put("object", objectMapper.writeValueAsString(object));
+        } catch (Exception e) {
+            log.warn("Failed to serialize object: {}", e.getMessage());
+        }
+        
+        logSuccess(actorId, objectType + "_deleted", null, objectType, objectId, extraData, null);
     }
-
-    /**
-     * 按事件类型统计
-     */
-    public List<Object[]> countByEventType(int hours) {
-        LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        return auditLogRepository.countByEventTypeGrouped(since);
-    }
-
-    /**
-     * 分页查询用户日志
-     */
-    public List<AuditLog> getUserLogsPaged(Long userId, int page, int size) {
-        return auditLogRepository.findByUserIdPaged(userId, PageRequest.of(page, size));
-    }
-
-    /**
-     * 转换为 DTO
-     */
-    public AuditLogDTO.AuditLogResponse toResponse(AuditLog log) {
-        return AuditLogDTO.AuditLogResponse.builder()
+    
+    private AuditLogDTO toDTO(AuditLog log) {
+        return AuditLogDTO.builder()
                 .id(log.getId())
-                .userId(log.getUserId())
-                .userName(log.getUserName())
+                .actorId(log.getActorId())
                 .eventType(log.getEventType())
-                .eventDescription(log.getEventDescription())
-                .resourceType(log.getResourceType())
-                .resourceId(log.getResourceId())
-                .oldValue(log.getOldValue())
-                .newValue(log.getNewValue())
-                .result(log.getResult())
-                .errorMessage(log.getErrorMessage())
+                .eventTime(log.getEventTime())
+                .realmId(log.getRealmId())
+                .objectType(log.getObjectType())
+                .objectId(log.getObjectId())
+                .extraData(log.getExtraData())
                 .ipAddress(log.getIpAddress())
                 .userAgent(log.getUserAgent())
-                .realmId(log.getRealmId())
-                .eventTime(log.getEventTime().toString())
-                .requestId(log.getRequestId())
+                .result(log.getResult())
+                .errorMessage(log.getErrorMessage())
                 .build();
-    }
-
-    /**
-     * 获取审计日志摘要
-     */
-    public AuditLogDTO.AuditSummary getSummary(Long realmId, int hours) {
-        LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        LocalDateTime end = LocalDateTime.now();
-        
-        List<AuditLog> logs = auditLogRepository.findByTimeRange(since, end);
-        
-        long total = logs.size();
-        long successCount = logs.stream().filter(l -> l.getResult().equals(AuditLog.RESULT_SUCCESS)).count();
-        long failureCount = total - successCount;
-        
-        return AuditLogDTO.AuditSummary.builder()
-                .realmId(realmId)
-                .timeRangeStart(since.toString())
-                .timeRangeEnd(end.toString())
-                .totalOperations(total)
-                .successCount(successCount)
-                .failureCount(failureCount)
-                .failureRate(total > 0 ? (double) failureCount / total * 100 : 0)
-                .build();
-    }
-
-    /**
-     * 获取请求追踪链
-     */
-    public List<AuditLog> getRequestChain(String requestId) {
-        return auditLogRepository.findByRequestId(requestId);
     }
 }
