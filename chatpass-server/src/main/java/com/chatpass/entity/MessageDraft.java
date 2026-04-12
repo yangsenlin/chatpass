@@ -8,51 +8,56 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 /**
- * 用户组实体
- * 用于组织用户和管理群组权限
+ * 消息草稿实体
+ * 用于保存用户未发送的消息草稿
  */
 @Entity
-@Table(name = "user_groups")
+@Table(name = "message_drafts")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserGroup {
+public class MessageDraft {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
     /**
-     * 组名称
+     * 所属用户ID
      */
-    @Column(nullable = false, length = 100)
-    private String name;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
     
     /**
-     * 组描述
+     * 目标Stream ID（如果是Stream消息）
      */
-    @Column(length = 500)
-    private String description;
+    @Column(name = "stream_id")
+    private Long streamId;
     
     /**
-     * 所属组织ID
+     * 目标用户ID列表（如果是私信，JSON格式）
      */
-    @Column(name = "realm_id", nullable = false)
-    private Long realmId;
+    @Column(name = "to_user_ids", length = 500)
+    private String toUserIds;
     
     /**
-     * 是否为公开组
+     * 话题（Stream消息）
      */
-    @Column(name = "is_public")
-    @Builder.Default
-    private Boolean isPublic = true;
+    @Column(name = "topic", length = 100)
+    private String topic;
     
     /**
-     * 创建者ID
+     * 草稿内容
      */
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "content", columnDefinition = "TEXT")
+    private String content;
+    
+    /**
+     * 消息类型
+     */
+    @Column(name = "type", length = 20)
+    private String type; // stream, private
     
     /**
      * 创建时间

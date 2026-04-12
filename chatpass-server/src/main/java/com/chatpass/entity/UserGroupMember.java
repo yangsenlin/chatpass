@@ -8,57 +8,52 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 /**
- * 用户组实体
- * 用于组织用户和管理群组权限
+ * 用户组成员实体
+ * 记录用户与组的关系
  */
 @Entity
-@Table(name = "user_groups")
+@Table(name = "user_group_members")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserGroup {
+public class UserGroupMember {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
     /**
-     * 组名称
+     * 用户组ID
      */
-    @Column(nullable = false, length = 100)
-    private String name;
+    @Column(name = "group_id", nullable = false)
+    private Long groupId;
     
     /**
-     * 组描述
+     * 用户ID
      */
-    @Column(length = 500)
-    private String description;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
     
     /**
-     * 所属组织ID
+     * 成员角色
      */
-    @Column(name = "realm_id", nullable = false)
-    private Long realmId;
-    
-    /**
-     * 是否为公开组
-     */
-    @Column(name = "is_public")
+    @Column(name = "role", length = 20)
     @Builder.Default
-    private Boolean isPublic = true;
+    private String role = "member"; // owner, admin, member
     
     /**
-     * 创建者ID
+     * 是否为主人
      */
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "is_owner")
+    @Builder.Default
+    private Boolean isOwner = false;
     
     /**
-     * 创建时间
+     * 加入时间
      */
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "joined_at", nullable = false, updatable = false)
+    private LocalDateTime joinedAt;
     
     /**
      * 更新时间
@@ -68,7 +63,7 @@ public class UserGroup {
     
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        joinedAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
     

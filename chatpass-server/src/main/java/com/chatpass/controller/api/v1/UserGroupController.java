@@ -1,215 +1,160 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.UserGroupDTO;
-import com.chatpass.entity.UserGroup;
-import com.chatpass.entity.UserGroupMembership;
-import com.chatpass.entity.UserProfile;
-import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.UserGroupService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
- * UserGroup 控制器
- * 
- * 用户组管理 API
+ * 用户组控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "User Groups", description = "用户组管理 API")
+@Slf4j
 public class UserGroupController {
-
+    
     private final UserGroupService groupService;
-    private final SecurityUtil securityUtil;
-
-    @PostMapping("/user_groups")
-    @Operation(summary = "创建用户组")
-    public ResponseEntity<ApiResponse<UserGroupDTO.Response>> createGroup(
-            @RequestBody UserGroupDTO.CreateRequest request) {
-        Long realmId = securityUtil.getCurrentRealmId();
+    
+    /**
+     * 创建用户组
+     */
+    @PostMapping("/realm/{realmId}/user_groups")
+    public ResponseEntity<UserGroupDTO.GroupInfo> createGroup(
+            @PathVariable Long realmId,
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) Boolean isPublic,
+            @RequestParam Long createdBy) {
         
-        UserGroup group = groupService.createGroup(realmId, request.getName(), request.getDescription());
-        
-        return ResponseEntity.ok(ApiResponse.success(toResponse(group)));
+        UserGroupDTO.GroupInfo group = groupService.createGroup(realmId, name, description, isPublic, createdBy);
+        return ResponseEntity.status(HttpStatus.CREATED).body(group);
     }
-
-    @GetMapping("/user_groups")
-    @Operation(summary = "获取 Realm 的所有用户组")
-    public ResponseEntity<ApiResponse<List<UserGroupDTO.Response>>> getRealmGroups() {
-        Long realmId = securityUtil.getCurrentRealmId();
-        
-        List<UserGroup> groups = groupService.getRealmGroups(realmId);
-        
-        List<UserGroupDTO.Response> responses = groups.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(responses));
+    
+    /**
+     * 获取组织的所有组
+     */
+    @GetMapping("/realm/{realmId}/user_groups")
+    public ResponseEntity<List<UserGroupDTO.GroupInfo>> getRealmGroups(@PathVariable Long realmId) {
+        List<UserGroupDTO.GroupInfo> groups = groupService.getGroupsByRealm(realmId);
+        return ResponseEntity.ok(groups);
     }
-
-    @GetMapping("/user_groups/{id}")
-    @Operation(summary = "获取用户组详情")
-    public ResponseEntity<ApiResponse<UserGroupDTO.DetailResponse>> getGroupDetail(@PathVariable Long id) {
-        UserGroup group = groupService.getGroupById(id);
-        
-        List<UserProfile> members = groupService.getGroupMembers(id);
-        Long memberCount = groupService.getGroupMemberCount(id);
-        
-        List<UserGroupDTO.MemberInfo> memberInfos = members.stream()
-                .limit(20) // 最多返回20个成员
-                .map(u -> UserGroupDTO.MemberInfo.builder()
-                        .userId(u.getId())
-                        .userName(u.getFullName())
-                        .email(u.getEmail())
-                        .build())
-                .collect(Collectors.toList());
-        
-        UserGroupDTO.DetailResponse response = UserGroupDTO.DetailResponse.builder()
-                .id(group.getId())
-                .name(group.getName())
-                .description(group.getDescription())
-                .isSystem(group.getIsSystem())
-                .memberCount(memberCount)
-                .members(memberInfos)
-                .build();
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+    
+    /**
+     * 获取公开组
+     */
+    @GetMapping("/realm/{realmId}/user_groups/public")
+    public ResponseEntity<List<UserGroupDTO.GroupInfo>> getPublicGroups(@PathVariable Long realmId) {
+        List<UserGroupDTO.GroupInfo> groups = groupService.getPublicGroups(realmId);
+        return ResponseEntity.ok(groups);
     }
-
-    @PatchMapping("/user_groups/{id}")
-    @Operation(summary = "更新用户组")
-    public ResponseEntity<ApiResponse<UserGroupDTO.Response>> updateGroup(
-            @PathVariable Long id,
-            @RequestBody UserGroupDTO.UpdateRequest request) {
-        UserGroup group = groupService.updateGroup(id, request.getName(), request.getDescription());
-        
-        return ResponseEntity.ok(ApiResponse.success(toResponse(group)));
+    
+    /**
+     * 获取用户所在的组
+     */
+    @GetMapping("/users/{userId}/groups")
+    public ResponseEntity<List<UserGroupDTO.GroupInfo>> getUserGroups(@PathVariable Long userId) {
+        List<UserGroupDTO.GroupInfo> groups = groupService.getGroupsByUser(userId);
+        return ResponseEntity.ok(groups);
     }
-
-    @DeleteMapping("/user_groups/{id}")
-    @Operation(summary = "删除用户组")
-    public ResponseEntity<ApiResponse<Void>> deleteGroup(@PathVariable Long id) {
-        groupService.deleteGroup(id);
+    
+    /**
+     * 获取组详情
+     */
+    @GetMapping("/user_groups/{groupId}")
+    public ResponseEntity<UserGroupDTO.GroupInfo> getGroup(
+            @PathVariable Long groupId,
+            @RequestParam(defaultValue = "false") boolean includeMembers) {
         
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return groupService.getGroupById(groupId, includeMembers)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @PostMapping("/user_groups/{id}/members")
-    @Operation(summary = "添加成员到组")
-    public ResponseEntity<ApiResponse<UserGroupDTO.MembershipResponse>> addMember(
-            @PathVariable Long id,
-            @RequestBody UserGroupDTO.AddMemberRequest request) {
-        UserGroupMembership membership = groupService.addMember(id, request.getUserId());
+    
+    /**
+     * 更新组信息
+     */
+    @PatchMapping("/user_groups/{groupId}")
+    public ResponseEntity<UserGroupDTO.GroupInfo> updateGroup(
+            @PathVariable Long groupId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) Boolean isPublic) {
         
-        return ResponseEntity.ok(ApiResponse.success(toMembershipResponse(membership)));
+        UserGroupDTO.GroupInfo group = groupService.updateGroup(groupId, name, description, isPublic);
+        return ResponseEntity.ok(group);
     }
-
-    @PostMapping("/user_groups/{id}/members/batch")
-    @Operation(summary = "批量添加成员")
-    public ResponseEntity<ApiResponse<UserGroupDTO.BatchMembershipResponse>> addMembersBatch(
-            @PathVariable Long id,
-            @RequestBody UserGroupDTO.BatchAddRequest request) {
-        List<UserGroupMembership> memberships = groupService.addMembers(id, request.getUserIds());
-        
-        List<UserGroupDTO.MembershipResponse> responses = memberships.stream()
-                .map(this::toMembershipResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(UserGroupDTO.BatchMembershipResponse.builder()
-                .memberships(responses)
-                .count(responses.size())
-                .build()));
+    
+    /**
+     * 删除组
+     */
+    @DeleteMapping("/user_groups/{groupId}")
+    public ResponseEntity<Void> deleteGroup(@PathVariable Long groupId) {
+        groupService.deleteGroup(groupId);
+        return ResponseEntity.noContent().build();
     }
-
+    
+    /**
+     * 添加组成员
+     */
+    @PostMapping("/user_groups/{groupId}/members")
+    public ResponseEntity<UserGroupDTO.MemberInfo> addMember(
+            @PathVariable Long groupId,
+            @RequestParam Long userId,
+            @RequestParam(required = false, defaultValue = "member") String role) {
+        
+        UserGroupDTO.MemberInfo member = groupService.addMember(groupId, userId, role);
+        return ResponseEntity.status(HttpStatus.CREATED).body(member);
+    }
+    
+    /**
+     * 获取组成员列表
+     */
+    @GetMapping("/user_groups/{groupId}/members")
+    public ResponseEntity<List<UserGroupDTO.MemberInfo>> getGroupMembers(@PathVariable Long groupId) {
+        List<UserGroupDTO.MemberInfo> members = groupService.getGroupMembers(groupId);
+        return ResponseEntity.ok(members);
+    }
+    
+    /**
+     * 移除组成员
+     */
     @DeleteMapping("/user_groups/{groupId}/members/{userId}")
-    @Operation(summary = "移除成员")
-    public ResponseEntity<ApiResponse<Void>> removeMember(
+    public ResponseEntity<Void> removeMember(
             @PathVariable Long groupId,
             @PathVariable Long userId) {
+        
         groupService.removeMember(groupId, userId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.noContent().build();
     }
-
-    @GetMapping("/user_groups/{id}/members")
-    @Operation(summary = "获取组的所有成员")
-    public ResponseEntity<ApiResponse<List<UserGroupDTO.MemberInfo>>> getGroupMembers(@PathVariable Long id) {
-        List<UserProfile> members = groupService.getGroupMembers(id);
+    
+    /**
+     * 更新成员角色
+     */
+    @PatchMapping("/user_groups/{groupId}/members/{userId}/role")
+    public ResponseEntity<UserGroupDTO.MemberInfo> updateMemberRole(
+            @PathVariable Long groupId,
+            @PathVariable Long userId,
+            @RequestParam String role) {
         
-        List<UserGroupDTO.MemberInfo> memberInfos = members.stream()
-                .map(u -> UserGroupDTO.MemberInfo.builder()
-                        .userId(u.getId())
-                        .userName(u.getFullName())
-                        .email(u.getEmail())
-                        .build())
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(memberInfos));
+        UserGroupDTO.MemberInfo member = groupService.updateMemberRole(groupId, userId, role);
+        return ResponseEntity.ok(member);
     }
-
-    @GetMapping("/users/me/groups")
-    @Operation(summary = "获取当前用户所属的组")
-    public ResponseEntity<ApiResponse<List<UserGroupDTO.Response>>> getCurrentUserGroups() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        List<UserGroup> groups = groupService.getUserGroups(userId);
-        
-        List<UserGroupDTO.Response> responses = groups.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(responses));
-    }
-
-    @GetMapping("/user_groups/{groupId}/members/{userId}")
-    @Operation(summary = "检查用户是否在组中")
-    public ResponseEntity<ApiResponse<Boolean>> checkUserInGroup(
+    
+    /**
+     * 检查用户是否在组中
+     */
+    @GetMapping("/user_groups/{groupId}/members/{userId}/check")
+    public ResponseEntity<Boolean> checkMembership(
             @PathVariable Long groupId,
             @PathVariable Long userId) {
+        
         boolean inGroup = groupService.isUserInGroup(groupId, userId);
-        
-        return ResponseEntity.ok(ApiResponse.success(inGroup));
-    }
-
-    @PostMapping("/user_groups/init_system")
-    @Operation(summary = "初始化系统组")
-    public ResponseEntity<ApiResponse<Map<String, String>>> initSystemGroups() {
-        Long realmId = securityUtil.getCurrentRealmId();
-        
-        groupService.initSystemGroups(realmId);
-        
-        return ResponseEntity.ok(ApiResponse.success(Map.of("message", "系统用户组已初始化")));
-    }
-
-    private UserGroupDTO.Response toResponse(UserGroup group) {
-        Long memberCount = groupService.getGroupMemberCount(group.getId());
-        
-        return UserGroupDTO.Response.builder()
-                .id(group.getId())
-                .name(group.getName())
-                .description(group.getDescription())
-                .isSystem(group.getIsSystem())
-                .memberCount(memberCount)
-                .build();
-    }
-
-    private UserGroupDTO.MembershipResponse toMembershipResponse(UserGroupMembership membership) {
-        return UserGroupDTO.MembershipResponse.builder()
-                .id(membership.getId())
-                .groupId(membership.getGroup().getId())
-                .groupName(membership.getGroup().getName())
-                .userId(membership.getUser().getId())
-                .userName(membership.getUser().getFullName())
-                .joinedAt(membership.getJoinedAt().toString())
-                .build();
+        return ResponseEntity.ok(inGroup);
     }
 }

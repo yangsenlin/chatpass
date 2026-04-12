@@ -1,76 +1,128 @@
 package com.chatpass.service;
 
-import com.chatpass.entity.Realm;
+import com.chatpass.dto.UserGroupDTO;
 import com.chatpass.entity.UserGroup;
-import com.chatpass.entity.UserGroupMembership;
-import com.chatpass.entity.UserProfile;
-import com.chatpass.repository.RealmRepository;
-import com.chatpass.repository.UserGroupMembershipRepository;
+import com.chatpass.entity.UserGroupMember;
 import com.chatpass.repository.UserGroupRepository;
-import com.chatpass.repository.UserProfileRepository;
+import com.chatpass.repository.UserGroupMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * UserGroupService
- * 
- * 用户组管理服务
+ * 用户组服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserGroupService {
-
+    
     private final UserGroupRepository groupRepository;
-    private final UserGroupMembershipRepository membershipRepository;
-    private final RealmRepository realmRepository;
-    private final UserProfileRepository userRepository;
-
+    private final UserGroupMemberRepository memberRepository;
+    
     /**
      * 创建用户组
      */
     @Transactional
-    public UserGroup createGroup(Long realmId, String name, String description) {
-        Realm realm = realmRepository.findById(realmId)
-                .orElseThrow(() -> new IllegalArgumentException("Realm 不存在"));
-        
+    public UserGroupDTO.GroupInfo createGroup(Long realmId, String name, String description, 
+                                                Boolean isPublic, Long createdBy) {
+        // 检查名称是否已存在
         if (groupRepository.existsByRealmIdAndName(realmId, name)) {
-            throw new IllegalArgumentException("用户组已存在: " + name);
+            throw new IllegalArgumentException("组名称已存在: " + name);
         }
         
         UserGroup group = UserGroup.builder()
-                .realm(realm)
                 .name(name)
                 .description(description)
-                .isSystem(false)
+                .realmId(realmId)
+                .isPublic(isPublic != null ? isPublic : true)
+                .createdBy(createdBy)
                 .build();
         
-        groupRepository.save(group);
-        log.info("Created user group: {} in realm {}", name, realmId);
+        group = groupRepository.save(group);
         
-        return group;
+        // 创建者自动成为组主人
+        UserGroupMember owner = UserGroupMember.builder()
+                .groupId(group.getId())
+                .userId(createdBy)
+                .role("owner")
+                .isOwner(true)
+                .build();
+        
+        memberRepository.save(owner);
+        
+        log.info("创建用户组: {} (realmId: {}, creator: {})", name, realmId, createdBy);
+        
+        return toGroupInfo(group, 1);
     }
-
+    
     /**
-     * 更新用户组
+     * 获取组织的所有组
+     */
+    public List<UserGroupDTO.GroupInfo> getGroupsByRealm(Long realmId) {
+        return groupRepository.findByRealmId(realmId)
+                .stream()
+                .map(g -> toGroupInfo(g, (int) memberRepository.countByGroupId(g.getId())))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取公开组
+     */
+    public List<UserGroupDTO.GroupInfo> getPublicGroups(Long realmId) {
+        return groupRepository.findByRealmIdAndIsPublicTrue(realmId)
+                .stream()
+                .map(g -> toGroupInfo(g, (int) memberRepository.countByGroupId(g.getId())))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取用户所在的组
+     */
+    public List<UserGroupDTO.GroupInfo> getGroupsByUser(Long userId) {
+        return groupRepository.findGroupsByUserId(userId)
+                .stream()
+                .map(g -> toGroupInfo(g, (int) memberRepository.countByGroupId(g.getId())))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取组详情
+     */
+    public Optional<UserGroupDTO.GroupInfo> getGroupById(Long groupId, boolean includeMembers) {
+        return groupRepository.findById(groupId)
+                .map(g -> {
+                    int memberCount = (int) memberRepository.countByGroupId(g.getId());
+                    UserGroupDTO.GroupInfo info = toGroupInfo(g, memberCount);
+                    
+                    if (includeMembers) {
+                        List<UserGroupDTO.MemberInfo> members = memberRepository.findByGroupId(groupId)
+                                .stream()
+                                .map(this::toMemberInfo)
+                                .collect(Collectors.toList());
+                        info.setMembers(members);
+                    }
+                    
+                    return info;
+                });
+    }
+    
+    /**
+     * 更新组信息
      */
     @Transactional
-    public UserGroup updateGroup(Long groupId, String name, String description) {
+    public UserGroupDTO.GroupInfo updateGroup(Long groupId, String name, String description, Boolean isPublic) {
         UserGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("用户组不存在"));
-        
-        if (group.getIsSystem()) {
-            throw new IllegalArgumentException("系统组不能修改");
-        }
+                .orElseThrow(() -> new IllegalArgumentException("组不存在: " + groupId));
         
         if (name != null && !name.equals(group.getName())) {
-            if (groupRepository.existsByRealmIdAndName(group.getRealm().getId(), name)) {
-                throw new IllegalArgumentException("用户组名称已存在: " + name);
+            if (groupRepository.existsByRealmIdAndName(group.getRealmId(), name)) {
+                throw new IllegalArgumentException("组名称已存在: " + name);
             }
             group.setName(name);
         }
@@ -79,159 +131,144 @@ public class UserGroupService {
             group.setDescription(description);
         }
         
-        groupRepository.save(group);
-        log.info("Updated user group: {}", groupId);
+        if (isPublic != null) {
+            group.setIsPublic(isPublic);
+        }
         
-        return group;
+        group = groupRepository.save(group);
+        log.info("更新用户组: {}", group.getName());
+        
+        return toGroupInfo(group, (int) memberRepository.countByGroupId(groupId));
     }
-
+    
     /**
-     * 删除用户组
+     * 添加组成员
+     */
+    @Transactional
+    public UserGroupDTO.MemberInfo addMember(Long groupId, Long userId, String role) {
+        // 检查组是否存在
+        if (!groupRepository.existsById(groupId)) {
+            throw new IllegalArgumentException("组不存在: " + groupId);
+        }
+        
+        // 检查用户是否已在组中
+        if (memberRepository.existsByGroupIdAndUserId(groupId, userId)) {
+            throw new IllegalArgumentException("用户已在组中");
+        }
+        
+        UserGroupMember member = UserGroupMember.builder()
+                .groupId(groupId)
+                .userId(userId)
+                .role(role != null ? role : "member")
+                .isOwner("owner".equals(role))
+                .build();
+        
+        member = memberRepository.save(member);
+        log.info("添加组成员: userId={}, groupId={}, role={}", userId, groupId, role);
+        
+        return toMemberInfo(member);
+    }
+    
+    /**
+     * 移除组成员
+     */
+    @Transactional
+    public void removeMember(Long groupId, Long userId) {
+        UserGroupMember member = memberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("成员不存在"));
+        
+        if (member.getIsOwner()) {
+            // 检查是否还有其他主人
+            long ownerCount = memberRepository.findByGroupIdAndIsOwnerTrue(groupId).size();
+            if (ownerCount <= 1) {
+                throw new IllegalStateException("不能移除最后一个组主人");
+            }
+        }
+        
+        memberRepository.deleteByGroupIdAndUserId(groupId, userId);
+        log.info("移除组成员: userId={}, groupId={}", userId, groupId);
+    }
+    
+    /**
+     * 更新成员角色
+     */
+    @Transactional
+    public UserGroupDTO.MemberInfo updateMemberRole(Long groupId, Long userId, String newRole) {
+        UserGroupMember member = memberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("成员不存在"));
+        
+        // 如果降级主人，检查是否还有其他主人
+        if (member.getIsOwner() && !"owner".equals(newRole)) {
+            long ownerCount = memberRepository.findByGroupIdAndIsOwnerTrue(groupId).size();
+            if (ownerCount <= 1) {
+                throw new IllegalStateException("不能降级最后一个组主人");
+            }
+        }
+        
+        member.setRole(newRole);
+        member.setIsOwner("owner".equals(newRole));
+        
+        member = memberRepository.save(member);
+        log.info("更新成员角色: userId={}, groupId={}, role={}", userId, groupId, newRole);
+        
+        return toMemberInfo(member);
+    }
+    
+    /**
+     * 删除组
      */
     @Transactional
     public void deleteGroup(Long groupId) {
         UserGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("用户组不存在"));
+                .orElseThrow(() -> new IllegalArgumentException("组不存在: " + groupId));
         
-        if (group.getIsSystem()) {
-            throw new IllegalArgumentException("系统组不能删除");
-        }
-        
-        // 删除所有成员关系
-        membershipRepository.deleteByGroupId(groupId);
+        // 删除所有成员
+        memberRepository.findByGroupId(groupId).forEach(m -> memberRepository.delete(m));
         
         // 删除组
         groupRepository.delete(group);
-        log.info("Deleted user group: {}", groupId);
+        log.info("删除用户组: {}", group.getName());
     }
-
+    
     /**
-     * 添加用户到组
+     * 获取组成员列表
      */
-    @Transactional
-    public UserGroupMembership addMember(Long groupId, Long userId) {
-        UserGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("用户组不存在"));
-        
-        UserProfile user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-        
-        if (membershipRepository.existsByGroupAndUser(group, user)) {
-            log.debug("User {} already in group {}", userId, groupId);
-            return membershipRepository.findByGroupAndUser(group, user).orElse(null);
-        }
-        
-        UserGroupMembership membership = UserGroupMembership.builder()
-                .group(group)
-                .user(user)
-                .build();
-        
-        membershipRepository.save(membership);
-        log.info("Added user {} to group {}", userId, groupId);
-        
-        return membership;
-    }
-
-    /**
-     * 批量添加用户到组
-     */
-    @Transactional
-    public List<UserGroupMembership> addMembers(Long groupId, List<Long> userIds) {
-        return userIds.stream()
-                .map(userId -> addMember(groupId, userId))
-                .filter(m -> m != null)
+    public List<UserGroupDTO.MemberInfo> getGroupMembers(Long groupId) {
+        return memberRepository.findByGroupId(groupId)
+                .stream()
+                .map(this::toMemberInfo)
                 .collect(Collectors.toList());
     }
-
-    /**
-     * 移除用户从组
-     */
-    @Transactional
-    public void removeMember(Long groupId, Long userId) {
-        UserGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("用户组不存在"));
-        
-        UserProfile user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-        
-        membershipRepository.deleteByGroupAndUser(group, user);
-        log.info("Removed user {} from group {}", userId, groupId);
-    }
-
-    /**
-     * 获取 Realm 的所有用户组
-     */
-    public List<UserGroup> getRealmGroups(Long realmId) {
-        return groupRepository.findByRealmIdOrderByName(realmId);
-    }
-
-    /**
-     * 获取组的所有成员
-     */
-    public List<UserProfile> getGroupMembers(Long groupId) {
-        return membershipRepository.findUsersByGroupId(groupId);
-    }
-
-    /**
-     * 获取用户所属的所有组
-     */
-    public List<UserGroup> getUserGroups(Long userId) {
-        return membershipRepository.findGroupsByUserId(userId);
-    }
-
-    /**
-     * 获取组的成员数量
-     */
-    public Long getGroupMemberCount(Long groupId) {
-        return membershipRepository.countByGroupId(groupId);
-    }
-
+    
     /**
      * 检查用户是否在组中
      */
     public boolean isUserInGroup(Long groupId, Long userId) {
-        UserGroup group = groupRepository.findById(groupId).orElse(null);
-        UserProfile user = userRepository.findById(userId).orElse(null);
-        
-        if (group == null || user == null) return false;
-        
-        return membershipRepository.existsByGroupAndUser(group, user);
+        return memberRepository.existsByGroupIdAndUserId(groupId, userId);
     }
-
-    /**
-     * 获取用户组详情
-     */
-    public UserGroup getGroupById(Long groupId) {
-        return groupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException("用户组不存在"));
+    
+    private UserGroupDTO.GroupInfo toGroupInfo(UserGroup group, int memberCount) {
+        return UserGroupDTO.GroupInfo.builder()
+                .id(group.getId())
+                .name(group.getName())
+                .description(group.getDescription())
+                .realmId(group.getRealmId())
+                .isPublic(group.getIsPublic())
+                .createdBy(group.getCreatedBy())
+                .createdAt(group.getCreatedAt())
+                .updatedAt(group.getUpdatedAt())
+                .memberCount(memberCount)
+                .build();
     }
-
-    /**
-     * 初始化系统用户组
-     */
-    @Transactional
-    public void initSystemGroups(Long realmId) {
-        Realm realm = realmRepository.findById(realmId)
-                .orElseThrow(() -> new IllegalArgumentException("Realm 不存在"));
-        
-        // 创建系统组
-        createSystemGroup(realm, UserGroup.SYSTEM_ADMIN, "管理员组");
-        createSystemGroup(realm, UserGroup.SYSTEM_MODERATOR, "版主组");
-        createSystemGroup(realm, UserGroup.SYSTEM_MEMBERS, "成员组");
-        
-        log.info("Initialized system groups for realm {}", realmId);
-    }
-
-    private void createSystemGroup(Realm realm, String name, String description) {
-        if (!groupRepository.existsByRealmIdAndName(realm.getId(), name)) {
-            UserGroup group = UserGroup.builder()
-                    .realm(realm)
-                    .name(name)
-                    .description(description)
-                    .isSystem(true)
-                    .build();
-            
-            groupRepository.save(group);
-        }
+    
+    private UserGroupDTO.MemberInfo toMemberInfo(UserGroupMember member) {
+        return UserGroupDTO.MemberInfo.builder()
+                .id(member.getId())
+                .groupId(member.getGroupId())
+                .userId(member.getUserId())
+                .role(member.getRole())
+                .isOwner(member.getIsOwner())
+                .joinedAt(member.getJoinedAt())
+                .build();
     }
 }
