@@ -273,6 +273,52 @@ public class MessageService {
         return toResponse(message, streamName);
     }
 
+    /**
+     * 删除消息
+     */
+    @Transactional
+    public void delete(Long realmId, Long messageId, Long userId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Message", messageId));
+
+        if (!message.getRealm().getId().equals(realmId)) {
+            throw new ResourceNotFoundException("Message", messageId);
+        }
+
+        // 检查权限：发送者或管理员可删除
+        UserProfile user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        
+        boolean isAdmin = user.getRole() <= 200; // 管理员角色
+        if (!message.getSender().getId().equals(userId) && !isAdmin) {
+            throw new IllegalArgumentException("Only sender or admin can delete message");
+        }
+
+        // 发布删除事件
+        eventPublisher.publishEvent(new WebSocketEventHandler.MessageDeleteEvent(messageId, realmId));
+
+        // 删除关联的 UserMessage
+        userMessageRepository.deleteByMessageId(messageId);
+        
+        // 删除消息
+        messageRepository.delete(message);
+    }
+
+    /**
+     * 渲染 Markdown（预览）
+     */
+    public MessageDTO.RenderResponse renderMarkdown(String content) {
+        MarkdownService.MentionResult mentionResult = markdownService.detectMentions(content);
+        String renderedContent = markdownService.render(content);
+        
+        return MessageDTO.RenderResponse.builder()
+                .content(content)
+                .renderedContent(renderedContent)
+                .mentionedUsers(mentionResult.mentionedUsers)
+                .hasWildcardMention(mentionResult.hasWildcardMention)
+                .build();
+    }
+
     private String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")

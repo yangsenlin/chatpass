@@ -114,6 +114,17 @@ public class AuthService {
     }
 
     /**
+     * 用户注销
+     */
+    @Transactional
+    public void logout(Long userId) {
+        UserProfile user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        log.info("User logged out: {}", user.getEmail());
+    }
+
+    /**
      * 获取 API Key
      */
     @Transactional

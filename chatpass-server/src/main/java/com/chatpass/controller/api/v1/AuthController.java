@@ -33,6 +33,14 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PostMapping("/logout")
+    @Operation(summary = "用户注销")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        Long userId = securityUtil.getCurrentUserId();
+        authService.logout(userId);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
     @PostMapping("/register")
     @Operation(summary = "用户注册")
     public ResponseEntity<ApiResponse<AuthDTO.TokenResponse>> register(

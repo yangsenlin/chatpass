@@ -36,4 +36,9 @@ public interface UserMessageRepository extends JpaRepository<UserMessage, Long> 
     // 查找特定 flag 的消息
     @Query("SELECT um FROM UserMessage um WHERE um.userProfile.id = :userId AND (um.flags & :flag) != 0")
     List<UserMessage> findByUserProfileIdAndFlagSet(@Param("userId") Long userId, @Param("flag") Long flag);
+    
+    // 删除消息的所有UserMessage记录
+    @Modifying
+    @Query("DELETE FROM UserMessage um WHERE um.message.id = :messageId")
+    void deleteByMessageId(@Param("messageId") Long messageId);
 }

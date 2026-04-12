@@ -8,9 +8,11 @@ import com.chatpass.entity.UserProfile;
 import com.chatpass.exception.ResourceNotFoundException;
 import com.chatpass.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StreamService {
 
     private final StreamRepository streamRepository;
@@ -135,6 +138,78 @@ public class StreamService {
         Long count = subscriptionRepository.countActiveSubscribersByStreamId(streamId);
         stream.setSubscriberCount(count.intValue());
         streamRepository.save(stream);
+    }
+
+    /**
+     * 批量订阅多个频道
+     */
+    @Transactional
+    public StreamDTO.BatchSubscribeResponse batchSubscribe(Long userId, List<Long> streamIds) {
+        UserProfile user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        List<StreamDTO.SubscriptionResult> results = new ArrayList<>();
+        int successCount = 0;
+        int alreadySubscribedCount = 0;
+
+        for (Long streamId : streamIds) {
+            try {
+                Stream stream = streamRepository.findById(streamId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Stream", streamId));
+
+                if (subscriptionRepository.existsByUserProfileIdAndStreamId(userId, streamId)) {
+                    results.add(StreamDTO.SubscriptionResult.builder()
+                            .streamId(streamId)
+                            .streamName(stream.getName())
+                            .success(false)
+                            .message("Already subscribed")
+                            .build());
+                    alreadySubscribedCount++;
+                    continue;
+                }
+
+                Subscription subscription = Subscription.builder()
+                        .userProfile(user)
+                        .stream(stream)
+                        .active(true)
+                        .color("#c2c2c2")
+                        .isMuted(false)
+                        .build();
+
+                subscriptionRepository.save(subscription);
+
+                // 更新订阅者数量
+                Long count = subscriptionRepository.countActiveSubscribersByStreamId(streamId);
+                stream.setSubscriberCount(count.intValue());
+                streamRepository.save(stream);
+
+                results.add(StreamDTO.SubscriptionResult.builder()
+                        .streamId(streamId)
+                        .streamName(stream.getName())
+                        .success(true)
+                        .message("Successfully subscribed")
+                        .build());
+                successCount++;
+
+            } catch (Exception e) {
+                results.add(StreamDTO.SubscriptionResult.builder()
+                        .streamId(streamId)
+                        .success(false)
+                        .message(e.getMessage())
+                        .build());
+            }
+        }
+
+        log.info("User {} batch subscribed: {} success, {} already subscribed", 
+                userId, successCount, alreadySubscribedCount);
+
+        return StreamDTO.BatchSubscribeResponse.builder()
+                .userId(userId)
+                .results(results)
+                .successCount(successCount)
+                .alreadySubscribedCount(alreadySubscribedCount)
+                .failedCount(streamIds.size() - successCount - alreadySubscribedCount)
+                .build();
     }
 
     @Transactional

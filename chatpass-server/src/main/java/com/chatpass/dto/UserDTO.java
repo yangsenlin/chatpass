@@ -68,6 +68,15 @@ public class UserDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    public static class AvatarResponse {
+        private Long userId;
+        private String avatarUrl;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class ListResponse {
         private java.util.List<Response> users;
         private Long total;

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Stream DTO
@@ -63,5 +64,36 @@ public class StreamDTO {
         private String color;
         private Boolean isMuted;
         private Boolean pinToTop;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class BatchSubscribeRequest {
+        private List<Long> streamIds;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class SubscriptionResult {
+        private Long streamId;
+        private String streamName;
+        private Boolean success;
+        private String message;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class BatchSubscribeResponse {
+        private Long userId;
+        private List<SubscriptionResult> results;
+        private Integer successCount;
+        private Integer alreadySubscribedCount;
+        private Integer failedCount;
     }
 }

@@ -66,4 +66,23 @@ public class MessageDTO {
         private String anchor;
         private Boolean historyLimited;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RenderRequest {
+        private String content;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RenderResponse {
+        private String content;
+        private String renderedContent;
+        private java.util.List<String> mentionedUsers;
+        private Boolean hasWildcardMention;
+    }
 }

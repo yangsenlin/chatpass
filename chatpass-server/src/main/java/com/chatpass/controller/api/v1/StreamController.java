@@ -79,6 +79,16 @@ public class StreamController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    @PostMapping("/users/me/subscriptions")
+    @Operation(summary = "批量订阅多个 Stream")
+    public ResponseEntity<ApiResponse<StreamDTO.BatchSubscribeResponse>> batchSubscribe(
+            @RequestBody StreamDTO.BatchSubscribeRequest request) {
+        
+        Long userId = securityUtil.getCurrentUserId();
+        StreamDTO.BatchSubscribeResponse response = streamService.batchSubscribe(userId, request.getStreamIds());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @DeleteMapping("/streams/{streamId}/subscribe")
     @Operation(summary = "取消订阅 Stream")
     public ResponseEntity<ApiResponse<Void>> unsubscribeStream(@PathVariable Long streamId) {

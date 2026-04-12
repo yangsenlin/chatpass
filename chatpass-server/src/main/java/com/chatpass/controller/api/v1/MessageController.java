@@ -85,4 +85,26 @@ public class MessageController {
         
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @DeleteMapping("/messages/{messageId}")
+    @Operation(summary = "删除消息")
+    public ResponseEntity<ApiResponse<Void>> deleteMessage(
+            @PathVariable Long messageId) {
+        
+        Long userId = securityUtil.getCurrentUserId();
+        Long realmId = securityUtil.getCurrentRealmId();
+        
+        messageService.delete(realmId, messageId, userId);
+        
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/messages/render")
+    @Operation(summary = "渲染 Markdown 预览")
+    public ResponseEntity<ApiResponse<MessageDTO.RenderResponse>> renderMarkdown(
+            @RequestBody MessageDTO.RenderRequest request) {
+        
+        MessageDTO.RenderResponse response = messageService.renderMarkdown(request.getContent());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
