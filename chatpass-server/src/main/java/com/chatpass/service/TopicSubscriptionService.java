@@ -1,6 +1,6 @@
 package com.chatpass.service;
 
-import com.chatpass.dto.TopicDTO;
+import com.chatpass.dto.TopicSubscriptionDTO;
 import com.chatpass.entity.TopicSubscription;
 import com.chatpass.repository.TopicSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -8,211 +8,154 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * TopicSubscriptionService
- * 
- * 话题订阅管理服务
+ * 话题订阅服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TopicSubscriptionService {
-
-    private final TopicSubscriptionRepository repository;
-    private final AuditLogService auditLogService;
-
+    
+    private final TopicSubscriptionRepository subscriptionRepository;
+    
     /**
      * 订阅话题
      */
     @Transactional
-    public TopicSubscription subscribe(Long userId, Long streamId, String topicName, 
-                                        String subscriptionType, 
-                                        Boolean desktopNotifications,
-                                        Boolean emailNotifications,
-                                        Boolean pushNotifications) {
-        // 检查是否已订阅
-        Optional<TopicSubscription> existing = repository.findByUserStreamTopic(userId, streamId, topicName);
+    public TopicSubscriptionDTO subscribe(Long userId, Long streamId, String topic, Long realmId) {
         
-        if (existing.isPresent()) {
-            // 更新订阅
-            TopicSubscription sub = existing.get();
-            sub.setSubscriptionType(subscriptionType != null ? subscriptionType : TopicSubscription.TYPE_NOTIFY);
-            if (desktopNotifications != null) sub.setDesktopNotifications(desktopNotifications);
-            if (emailNotifications != null) sub.setEmailNotifications(emailNotifications);
-            if (pushNotifications != null) sub.setPushNotifications(pushNotifications);
-            sub.setLastUpdated(LocalDateTime.now());
-            
-            sub = repository.save(sub);
-            
-            log.info("Topic subscription updated: {} for user {}", topicName, userId);
-            
-            return sub;
+        // 检查是否已订阅
+        if (subscriptionRepository.existsByUserIdAndStreamIdAndTopic(userId, streamId, topic)) {
+            throw new IllegalStateException("已订阅该话题");
         }
-
-        // 创建新订阅
-        TopicSubscription sub = TopicSubscription.builder()
+        
+        TopicSubscription subscription = TopicSubscription.builder()
                 .userId(userId)
                 .streamId(streamId)
-                .topicName(topicName)
-                .subscriptionType(subscriptionType != null ? subscriptionType : TopicSubscription.TYPE_NOTIFY)
-                .desktopNotifications(desktopNotifications != null ? desktopNotifications : true)
-                .emailNotifications(emailNotifications != null ? emailNotifications : false)
-                .pushNotifications(pushNotifications != null ? pushNotifications : true)
-                .soundNotifications(true)
+                .topic(topic)
+                .realmId(realmId)
+                .isMuted(false)
+                .notificationSettings("all")
                 .build();
-
-        sub = repository.save(sub);
-
-        auditLogService.logCreate(userId, "TOPIC_SUBSCRIPTION", sub.getId(), sub);
-
-        log.info("Topic subscription created: {} for user {}", topicName, userId);
-
-        return sub;
+        
+        subscription = subscriptionRepository.save(subscription);
+        log.info("订阅话题: userId={}, streamId={}, topic={}", userId, streamId, topic);
+        
+        return toDTO(subscription);
     }
-
+    
     /**
      * 取消订阅
      */
     @Transactional
-    public void unsubscribe(Long userId, Long streamId, String topicName) {
-        Optional<TopicSubscription> sub = repository.findByUserStreamTopic(userId, streamId, topicName);
-        
-        if (sub.isPresent()) {
-            repository.delete(sub.get());
-            
-            auditLogService.logDelete(userId, "TOPIC_SUBSCRIPTION", sub.get().getId(), sub.get());
-            
-            log.info("Topic unsubscribed: {} for user {}", topicName, userId);
-        }
+    public void unsubscribe(Long userId, Long streamId, String topic) {
+        subscriptionRepository.deleteByUserIdAndStreamIdAndTopic(userId, streamId, topic);
+        log.info("取消订阅话题: userId={}, streamId={}, topic={}", userId, streamId, topic);
     }
-
+    
     /**
-     * 静音话题
+     * 获取用户的所有订阅
      */
-    @Transactional
-    public TopicSubscription muteTopic(Long userId, Long streamId, String topicName) {
-        return subscribe(userId, streamId, topicName, TopicSubscription.TYPE_MUTE, false, false, false);
-    }
-
-    /**
-     * 取消静音
-     */
-    @Transactional
-    public TopicSubscription unmuteTopic(Long userId, Long streamId, String topicName) {
-        return subscribe(userId, streamId, topicName, TopicSubscription.TYPE_NOTIFY, true, false, true);
-    }
-
-    /**
-     * 设置仅提及通知
-     */
-    @Transactional
-    public TopicSubscription setMentionOnly(Long userId, Long streamId, String topicName) {
-        return subscribe(userId, streamId, topicName, TopicSubscription.TYPE_MENTION_ONLY, false, false, false);
-    }
-
-    /**
-     * 获取用户订阅列表
-     */
-    public List<TopicSubscription> getUserSubscriptions(Long userId) {
-        return repository.findByUserId(userId);
-    }
-
-    /**
-     * 获取 Stream 的订阅列表
-     */
-    public List<TopicSubscription> getStreamSubscriptions(Long streamId) {
-        return repository.findByStreamId(streamId);
-    }
-
-    /**
-     * 获取特定订阅
-     */
-    public Optional<TopicSubscription> getSubscription(Long userId, Long streamId, String topicName) {
-        return repository.findByUserStreamTopic(userId, streamId, topicName);
-    }
-
-    /**
-     * 获取 Topic 订阅者
-     */
-    public List<TopicSubscription> getTopicSubscribers(Long streamId, String topicName) {
-        return repository.findTopicSubscribers(streamId, topicName);
-    }
-
-    /**
-     * 获取静音列表
-     */
-    public List<TopicSubscription> getMutedTopics(Long userId) {
-        return repository.findMutedSubscriptions(userId);
-    }
-
-    /**
-     * 获取通知列表
-     */
-    public List<TopicSubscription> getNotifyTopics(Long userId) {
-        return repository.findNotifySubscriptions(userId);
-    }
-
-    /**
-     * 统计订阅数
-     */
-    public Long countSubscriptions(Long userId) {
-        return repository.countByUserId(userId);
-    }
-
-    /**
-     * 统计 Topic 订阅数
-     */
-    public Long countTopicSubscribers(Long streamId, String topicName) {
-        return repository.countByStreamIdAndTopicName(streamId, topicName);
-    }
-
-    /**
-     * 检查是否应该通知用户
-     */
-    public boolean shouldNotifyUser(Long userId, Long streamId, String topicName) {
-        Optional<TopicSubscription> sub = repository.findByUserStreamTopic(userId, streamId, topicName);
-        
-        if (!sub.isPresent()) {
-            // 未订阅默认通知
-            return true;
-        }
-        
-        return sub.get().shouldNotify();
-    }
-
-    /**
-     * 批量订阅
-     */
-    @Transactional
-    public List<TopicSubscription> batchSubscribe(Long userId, List<TopicDTO.SubscribeRequest> requests) {
-        return requests.stream()
-                .map(r -> subscribe(userId, r.getStreamId(), r.getTopicName(), 
-                        r.getSubscriptionType(), r.getDesktopNotifications(), 
-                        r.getEmailNotifications(), r.getPushNotifications()))
+    public List<TopicSubscriptionDTO> getUserSubscriptions(Long userId) {
+        return subscriptionRepository.findByUserIdOrderBySubscribedAtDesc(userId)
+                .stream()
+                .map(this::toDTO)
                 .collect(Collectors.toList());
     }
-
+    
     /**
-     * 转换为 DTO
+     * 获取用户在Stream的订阅
      */
-    public TopicDTO.SubscriptionResponse toResponse(TopicSubscription sub) {
-        return TopicDTO.SubscriptionResponse.builder()
-                .id(sub.getId())
-                .userId(sub.getUserId())
-                .streamId(sub.getStreamId())
-                .topicName(sub.getTopicName())
-                .subscriptionType(sub.getSubscriptionType())
-                .desktopNotifications(sub.getDesktopNotifications())
-                .emailNotifications(sub.getEmailNotifications())
-                .pushNotifications(sub.getPushNotifications())
-                .soundNotifications(sub.getSoundNotifications())
-                .isMuted(sub.isMuted())
-                .dateSubscribed(sub.getDateSubscribed().toString())
+    public List<TopicSubscriptionDTO> getUserStreamSubscriptions(Long userId, Long streamId) {
+        return subscriptionRepository.findByUserIdAndStreamId(userId, streamId)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取话题的订阅者
+     */
+    public List<TopicSubscriptionDTO> getTopicSubscribers(Long streamId, String topic) {
+        return subscriptionRepository.findByStreamIdAndTopic(streamId, topic)
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取活跃订阅者（未静音）
+     */
+    public List<Long> getActiveSubscriberIds(Long streamId, String topic) {
+        return subscriptionRepository.findActiveSubscribers(streamId, topic)
+                .stream()
+                .map(TopicSubscription::getUserId)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 设置静音状态
+     */
+    @Transactional
+    public void setMuted(Long userId, Long streamId, String topic, boolean muted) {
+        TopicSubscription subscription = subscriptionRepository.findByUserIdAndStreamIdAndTopic(userId, streamId, topic)
+                .orElseThrow(() -> new IllegalArgumentException("订阅不存在"));
+        
+        subscription.setIsMuted(muted);
+        subscriptionRepository.save(subscription);
+        log.info("设置话题静音: userId={}, topic={}, muted={}", userId, topic, muted);
+    }
+    
+    /**
+     * 设置通知配置
+     */
+    @Transactional
+    public void setNotificationSettings(Long userId, Long streamId, String topic, String settings) {
+        TopicSubscription subscription = subscriptionRepository.findByUserIdAndStreamIdAndTopic(userId, streamId, topic)
+                .orElseThrow(() -> new IllegalArgumentException("订阅不存在"));
+        
+        subscription.setNotificationSettings(settings);
+        subscriptionRepository.save(subscription);
+        log.info("设置通知配置: userId={}, topic={}, settings={}", userId, topic, settings);
+    }
+    
+    /**
+     * 检查是否订阅
+     */
+    public boolean isSubscribed(Long userId, Long streamId, String topic) {
+        return subscriptionRepository.existsByUserIdAndStreamIdAndTopic(userId, streamId, topic);
+    }
+    
+    /**
+     * 获取订阅详情
+     */
+    public Optional<TopicSubscriptionDTO> getSubscription(Long userId, Long streamId, String topic) {
+        return subscriptionRepository.findByUserIdAndStreamIdAndTopic(userId, streamId, topic)
+                .map(this::toDTO);
+    }
+    
+    /**
+     * 统计订阅者数量
+     */
+    public long getSubscriberCount(Long streamId, String topic) {
+        return subscriptionRepository.countByStreamIdAndTopic(streamId, topic);
+    }
+    
+    private TopicSubscriptionDTO toDTO(TopicSubscription subscription) {
+        return TopicSubscriptionDTO.builder()
+                .id(subscription.getId())
+                .userId(subscription.getUserId())
+                .streamId(subscription.getStreamId())
+                .topic(subscription.getTopic())
+                .realmId(subscription.getRealmId())
+                .isMuted(subscription.getIsMuted())
+                .notificationSettings(subscription.getNotificationSettings())
+                .subscribedAt(subscription.getSubscribedAt())
+                .updatedAt(subscription.getUpdatedAt())
                 .build();
     }
 }

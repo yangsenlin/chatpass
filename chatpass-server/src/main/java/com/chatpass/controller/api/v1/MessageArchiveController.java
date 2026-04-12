@@ -1,154 +1,129 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
-import com.chatpass.dto.ArchiveDTO;
-import com.chatpass.entity.MessageArchive;
-import com.chatpass.security.SecurityUtil;
+import com.chatpass.dto.MessageArchiveDTO;
 import com.chatpass.service.MessageArchiveService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
- * Message Archive 控制器
+ * 消息归档控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Message Archive", description = "消息归档 API")
+@Slf4j
 public class MessageArchiveController {
-
+    
     private final MessageArchiveService archiveService;
-    private final SecurityUtil securityUtil;
-
-    @PostMapping("/archives")
-    @Operation(summary = "归档消息")
-    public ResponseEntity<ApiResponse<ArchiveDTO.ArchiveResponse>> archiveMessage(
-            @RequestBody ArchiveDTO.ArchiveRequest request) {
-        Long realmId = securityUtil.getCurrentRealmId();
-
-        LocalDateTime expireDate = request.getExpireDate() != null ?
-                LocalDateTime.parse(request.getExpireDate()) : LocalDateTime.now().plusDays(30);
-
-        MessageArchive archive = archiveService.archiveMessage(
-                realmId, request.getMessageId(), request.getOriginalContent(),
-                request.getStorageType(), request.getArchiveReason(), expireDate);
-
-        return ResponseEntity.ok(ApiResponse.success(toArchiveResponse(archive)));
+    
+    /**
+     * 归档消息
+     */
+    @PostMapping("/messages/{messageId}/archive")
+    public ResponseEntity<MessageArchiveDTO> archiveMessage(
+            @PathVariable Long messageId,
+            @RequestParam(required = false, defaultValue = "manual") String archivePolicy,
+            @RequestParam(required = false) Long archivedBy,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime recoverUntil) {
+        
+        MessageArchiveDTO archive = archiveService.archiveMessage(messageId, archivePolicy, archivedBy, recoverUntil);
+        return ResponseEntity.status(HttpStatus.CREATED).body(archive);
     }
-
-    @GetMapping("/archives")
-    @Operation(summary = "获取归档列表")
-    public ResponseEntity<ApiResponse<List<ArchiveDTO.ArchiveResponse>>> getArchives() {
-        Long realmId = securityUtil.getCurrentRealmId();
-
-        List<MessageArchive> archives = archiveService.getRealmArchivesList(realmId);
-
-        List<ArchiveDTO.ArchiveResponse> response = archives.stream()
-                .map(this::toArchiveResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+    
+    /**
+     * 批量归档消息
+     */
+    @PostMapping("/realm/{realmId}/archive/batch")
+    public ResponseEntity<Integer> batchArchive(
+            @PathVariable Long realmId,
+            @RequestParam String archivePolicy,
+            @RequestParam(defaultValue = "90") int daysThreshold) {
+        
+        int count = archiveService.archiveMessagesByPolicy(realmId, archivePolicy, daysThreshold);
+        return ResponseEntity.ok(count);
     }
-
+    
+    /**
+     * 恢复归档消息
+     */
+    @PostMapping("/archives/{archiveId}/recover")
+    public ResponseEntity<Void> recoverMessage(@PathVariable Long archiveId) {
+        archiveService.recoverMessage(archiveId);
+        return ResponseEntity.ok().build();
+    }
+    
+    /**
+     * 获取组织的归档消息
+     */
+    @GetMapping("/realm/{realmId}/archives")
+    public ResponseEntity<List<MessageArchiveDTO>> getRealmArchives(@PathVariable Long realmId) {
+        List<MessageArchiveDTO> archives = archiveService.getRealmArchives(realmId);
+        return ResponseEntity.ok(archives);
+    }
+    
+    /**
+     * 获取Stream的归档消息
+     */
+    @GetMapping("/streams/{streamId}/archives")
+    public ResponseEntity<List<MessageArchiveDTO>> getStreamArchives(@PathVariable Long streamId) {
+        List<MessageArchiveDTO> archives = archiveService.getStreamArchives(streamId);
+        return ResponseEntity.ok(archives);
+    }
+    
+    /**
+     * 获取可恢复的归档
+     */
+    @GetMapping("/realm/{realmId}/archives/recoverable")
+    public ResponseEntity<List<MessageArchiveDTO>> getRecoverableArchives(@PathVariable Long realmId) {
+        List<MessageArchiveDTO> archives = archiveService.getRecoverableArchives(realmId);
+        return ResponseEntity.ok(archives);
+    }
+    
+    /**
+     * 获取归档详情
+     */
     @GetMapping("/archives/{archiveId}")
-    @Operation(summary = "获取归档详情")
-    public ResponseEntity<ApiResponse<ArchiveDTO.ArchiveResponse>> getArchive(
-            @PathVariable Long archiveId) {
-        MessageArchive archive = archiveService.getArchive(archiveId)
-                .orElseThrow(() -> new IllegalArgumentException("归档不存在"));
-
-        return ResponseEntity.ok(ApiResponse.success(toArchiveResponse(archive)));
+    public ResponseEntity<MessageArchiveDTO> getArchive(@PathVariable Long archiveId) {
+        return archiveService.getArchiveById(archiveId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @GetMapping("/archives/message/{messageId}")
-    @Operation(summary = "获取消息归档")
-    public ResponseEntity<ApiResponse<ArchiveDTO.ArchiveResponse>> getMessageArchive(
-            @PathVariable Long messageId) {
-        MessageArchive archive = archiveService.getMessageArchive(messageId)
-                .orElseThrow(() -> new IllegalArgumentException("消息未归档"));
-
-        return ResponseEntity.ok(ApiResponse.success(toArchiveResponse(archive)));
+    
+    /**
+     * 查找原消息的归档
+     */
+    @GetMapping("/messages/{messageId}/archive")
+    public ResponseEntity<MessageArchiveDTO> findByOriginalMessageId(@PathVariable Long messageId) {
+        return archiveService.findByOriginalMessageId(messageId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @PostMapping("/archives/{archiveId}/restore")
-    @Operation(summary = "恢复归档消息")
-    public ResponseEntity<ApiResponse<ArchiveDTO.RestoreResponse>> restoreArchive(
-            @PathVariable Long archiveId) {
-        MessageArchive archive = archiveService.restoreArchive(archiveId);
-
-        ArchiveDTO.RestoreResponse response = ArchiveDTO.RestoreResponse.builder()
-                .archiveId(archive.getArchiveId())
-                .messageId(archive.getMessageId())
-                .originalContent(archive.getOriginalContent())
-                .restoreCount(archive.getRestoreCount())
-                .build();
-
-        return ResponseEntity.ok(ApiResponse.success(response));
+    
+    /**
+     * 统计归档数量
+     */
+    @GetMapping("/realm/{realmId}/archives/count")
+    public ResponseEntity<Long> countArchives(@PathVariable Long realmId) {
+        long count = archiveService.countArchives(realmId);
+        return ResponseEntity.ok(count);
     }
-
-    @DeleteMapping("/archives/{archiveId}")
-    @Operation(summary = "删除归档")
-    public ResponseEntity<ApiResponse<Void>> deleteArchive(@PathVariable Long archiveId) {
-        archiveService.deleteArchive(archiveId);
-
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-    @GetMapping("/archives/reason/{reason}")
-    @Operation(summary = "按原因获取归档")
-    public ResponseEntity<ApiResponse<List<ArchiveDTO.ArchiveResponse>>> getArchivesByReason(
-            @PathVariable String reason) {
-        Long realmId = securityUtil.getCurrentRealmId();
-
-        List<MessageArchive> archives = archiveService.getArchivesByReason(realmId, reason);
-
-        List<ArchiveDTO.ArchiveResponse> response = archives.stream()
-                .map(this::toArchiveResponse)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
+    
+    /**
+     * 清理过期归档
+     */
     @PostMapping("/archives/cleanup")
-    @Operation(summary = "清理过期归档")
-    public ResponseEntity<ApiResponse<Integer>> cleanupExpiredArchives() {
-        Long realmId = securityUtil.getCurrentRealmId();
-
-        int cleaned = archiveService.cleanupExpiredArchives(realmId);
-
-        return ResponseEntity.ok(ApiResponse.success(cleaned));
-    }
-
-    @GetMapping("/archives/count")
-    @Operation(summary = "统计归档数")
-    public ResponseEntity<ApiResponse<Long>> countArchives() {
-        Long realmId = securityUtil.getCurrentRealmId();
-
-        Long count = archiveService.countActiveArchives(realmId);
-
-        return ResponseEntity.ok(ApiResponse.success(count));
-    }
-
-    private ArchiveDTO.ArchiveResponse toArchiveResponse(MessageArchive archive) {
-        return ArchiveDTO.ArchiveResponse.builder()
-                .id(archive.getId())
-                .realmId(archive.getRealmId())
-                .archiveId(archive.getArchiveId())
-                .messageId(archive.getMessageId())
-                .storageType(archive.getStorageType())
-                .archiveReason(archive.getArchiveReason())
-                .archiveDate(archive.getArchiveDate() != null ? archive.getArchiveDate().toString() : null)
-                .expireDate(archive.getExpireDate() != null ? archive.getExpireDate().toString() : null)
-                .isDeleted(archive.getIsDeleted())
-                .restoreCount(archive.getRestoreCount())
-                .lastRestored(archive.getLastRestored() != null ? archive.getLastRestored().toString() : null)
-                .build();
+    public ResponseEntity<Integer> cleanupExpiredArchives(
+            @RequestParam(defaultValue = "365") int daysThreshold) {
+        
+        archiveService.cleanupExpiredArchives(daysThreshold);
+        return ResponseEntity.ok(0);
     }
 }

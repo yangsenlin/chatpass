@@ -1,169 +1,151 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
-import com.chatpass.dto.TopicDTO;
-import com.chatpass.entity.TopicSubscription;
-import com.chatpass.security.SecurityUtil;
+import com.chatpass.dto.TopicSubscriptionDTO;
 import com.chatpass.service.TopicSubscriptionService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
- * Topic Subscription 控制器
+ * 话题订阅控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Topic Subscriptions", description = "话题订阅 API")
+@Slf4j
 public class TopicSubscriptionController {
-
+    
     private final TopicSubscriptionService subscriptionService;
-    private final SecurityUtil securityUtil;
-
-    @PostMapping("/topic-subscriptions")
-    @Operation(summary = "订阅话题")
-    public ResponseEntity<ApiResponse<TopicDTO.SubscriptionResponse>> subscribe(
-            @RequestBody TopicDTO.SubscribeRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
+    
+    /**
+     * 订阅话题
+     */
+    @PostMapping("/users/{userId}/topic_subscriptions")
+    public ResponseEntity<TopicSubscriptionDTO> subscribe(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic,
+            @RequestParam(required = false) Long realmId) {
         
-        TopicSubscription sub = subscriptionService.subscribe(
-                userId, request.getStreamId(), request.getTopicName(),
-                request.getSubscriptionType(), request.getDesktopNotifications(),
-                request.getEmailNotifications(), request.getPushNotifications());
-        
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.toResponse(sub)));
+        TopicSubscriptionDTO subscription = subscriptionService.subscribe(userId, streamId, topic, realmId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(subscription);
     }
-
-    @PostMapping("/topic-subscriptions/batch")
-    @Operation(summary = "批量订阅")
-    public ResponseEntity<ApiResponse<List<TopicDTO.SubscriptionResponse>>> batchSubscribe(
-            @RequestBody TopicDTO.BatchSubscribeRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
+    
+    /**
+     * 取消订阅
+     */
+    @DeleteMapping("/users/{userId}/topic_subscriptions")
+    public ResponseEntity<Void> unsubscribe(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic) {
         
-        List<TopicSubscription> subs = subscriptionService.batchSubscribe(userId, request.getSubscriptions());
-        
-        List<TopicDTO.SubscriptionResponse> response = subs.stream()
-                .map(subscriptionService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+        subscriptionService.unsubscribe(userId, streamId, topic);
+        return ResponseEntity.noContent().build();
     }
-
-    @DeleteMapping("/topic-subscriptions")
-    @Operation(summary = "取消订阅")
-    public ResponseEntity<ApiResponse<Void>> unsubscribe(
-            @RequestParam Long streamId, @RequestParam String topicName) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        subscriptionService.unsubscribe(userId, streamId, topicName);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
+    
+    /**
+     * 获取用户的所有订阅
+     */
+    @GetMapping("/users/{userId}/topic_subscriptions")
+    public ResponseEntity<List<TopicSubscriptionDTO>> getUserSubscriptions(@PathVariable Long userId) {
+        List<TopicSubscriptionDTO> subscriptions = subscriptionService.getUserSubscriptions(userId);
+        return ResponseEntity.ok(subscriptions);
     }
-
-    @PostMapping("/topic-subscriptions/mute")
-    @Operation(summary = "静音话题")
-    public ResponseEntity<ApiResponse<TopicDTO.SubscriptionResponse>> muteTopic(
-            @RequestBody TopicDTO.MuteRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        TopicSubscription sub = subscriptionService.muteTopic(
-                userId, request.getStreamId(), request.getTopicName());
-        
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.toResponse(sub)));
-    }
-
-    @PostMapping("/topic-subscriptions/unmute")
-    @Operation(summary = "取消静音")
-    public ResponseEntity<ApiResponse<TopicDTO.SubscriptionResponse>> unmuteTopic(
-            @RequestBody TopicDTO.MuteRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        TopicSubscription sub = subscriptionService.unmuteTopic(
-                userId, request.getStreamId(), request.getTopicName());
-        
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.toResponse(sub)));
-    }
-
-    @PostMapping("/topic-subscriptions/mention-only")
-    @Operation(summary = "仅提及通知")
-    public ResponseEntity<ApiResponse<TopicDTO.SubscriptionResponse>> setMentionOnly(
-            @RequestBody TopicDTO.MuteRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        TopicSubscription sub = subscriptionService.setMentionOnly(
-                userId, request.getStreamId(), request.getTopicName());
-        
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.toResponse(sub)));
-    }
-
-    @GetMapping("/topic-subscriptions")
-    @Operation(summary = "获取我的订阅列表")
-    public ResponseEntity<ApiResponse<List<TopicDTO.SubscriptionResponse>>> getMySubscriptions() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        List<TopicSubscription> subs = subscriptionService.getUserSubscriptions(userId);
-        
-        List<TopicDTO.SubscriptionResponse> response = subs.stream()
-                .map(subscriptionService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/topic-subscriptions/muted")
-    @Operation(summary = "获取静音列表")
-    public ResponseEntity<ApiResponse<List<TopicDTO.SubscriptionResponse>>> getMutedTopics() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        List<TopicSubscription> subs = subscriptionService.getMutedTopics(userId);
-        
-        List<TopicDTO.SubscriptionResponse> response = subs.stream()
-                .map(subscriptionService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/topic-subscriptions/notified")
-    @Operation(summary = "获取通知列表")
-    public ResponseEntity<ApiResponse<List<TopicDTO.SubscriptionResponse>>> getNotifyTopics() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        List<TopicSubscription> subs = subscriptionService.getNotifyTopics(userId);
-        
-        List<TopicDTO.SubscriptionResponse> response = subs.stream()
-                .map(subscriptionService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/topic-subscriptions/count")
-    @Operation(summary = "统计订阅数")
-    public ResponseEntity<ApiResponse<Long>> countSubscriptions() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        Long count = subscriptionService.countSubscriptions(userId);
-        
-        return ResponseEntity.ok(ApiResponse.success(count));
-    }
-
-    @GetMapping("/topic-subscriptions/stream/{streamId}")
-    @Operation(summary = "获取 Stream 的订阅列表")
-    public ResponseEntity<ApiResponse<List<TopicDTO.SubscriptionResponse>>> getStreamSubscriptions(
+    
+    /**
+     * 获取用户在Stream的订阅
+     */
+    @GetMapping("/users/{userId}/streams/{streamId}/topic_subscriptions")
+    public ResponseEntity<List<TopicSubscriptionDTO>> getUserStreamSubscriptions(
+            @PathVariable Long userId,
             @PathVariable Long streamId) {
-        List<TopicSubscription> subs = subscriptionService.getStreamSubscriptions(streamId);
         
-        List<TopicDTO.SubscriptionResponse> response = subs.stream()
-                .map(subscriptionService::toResponse)
-                .collect(Collectors.toList());
+        List<TopicSubscriptionDTO> subscriptions = subscriptionService.getUserStreamSubscriptions(userId, streamId);
+        return ResponseEntity.ok(subscriptions);
+    }
+    
+    /**
+     * 获取话题的订阅者
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/subscribers")
+    public ResponseEntity<List<TopicSubscriptionDTO>> getTopicSubscribers(
+            @PathVariable Long streamId,
+            @PathVariable String topic) {
         
-        return ResponseEntity.ok(ApiResponse.success(response));
+        List<TopicSubscriptionDTO> subscribers = subscriptionService.getTopicSubscribers(streamId, topic);
+        return ResponseEntity.ok(subscribers);
+    }
+    
+    /**
+     * 设置静音状态
+     */
+    @PatchMapping("/users/{userId}/topic_subscriptions/mute")
+    public ResponseEntity<Void> setMuted(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic,
+            @RequestParam boolean muted) {
+        
+        subscriptionService.setMuted(userId, streamId, topic, muted);
+        return ResponseEntity.ok().build();
+    }
+    
+    /**
+     * 设置通知配置
+     */
+    @PatchMapping("/users/{userId}/topic_subscriptions/notifications")
+    public ResponseEntity<Void> setNotificationSettings(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic,
+            @RequestParam String settings) {
+        
+        subscriptionService.setNotificationSettings(userId, streamId, topic, settings);
+        return ResponseEntity.ok().build();
+    }
+    
+    /**
+     * 检查是否订阅
+     */
+    @GetMapping("/users/{userId}/topic_subscriptions/check")
+    public ResponseEntity<Boolean> isSubscribed(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic) {
+        
+        boolean subscribed = subscriptionService.isSubscribed(userId, streamId, topic);
+        return ResponseEntity.ok(subscribed);
+    }
+    
+    /**
+     * 获取订阅详情
+     */
+    @GetMapping("/users/{userId}/topic_subscriptions/detail")
+    public ResponseEntity<TopicSubscriptionDTO> getSubscription(
+            @PathVariable Long userId,
+            @RequestParam Long streamId,
+            @RequestParam String topic) {
+        
+        return subscriptionService.getSubscription(userId, streamId, topic)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    /**
+     * 统计订阅者数量
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/subscriber_count")
+    public ResponseEntity<Long> getSubscriberCount(
+            @PathVariable Long streamId,
+            @PathVariable String topic) {
+        
+        long count = subscriptionService.getSubscriberCount(streamId, topic);
+        return ResponseEntity.ok(count);
     }
 }

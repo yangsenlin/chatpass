@@ -2,6 +2,7 @@ package com.chatpass.repository;
 
 import com.chatpass.entity.TopicSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -10,62 +11,57 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * TopicSubscriptionRepository
+ * 话题订阅仓库
  */
 @Repository
 public interface TopicSubscriptionRepository extends JpaRepository<TopicSubscription, Long> {
-
+    
     /**
-     * 查找用户的订阅
+     * 根据用户ID查找所有订阅
      */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.userId = :userId ORDER BY t.dateSubscribed DESC")
-    List<TopicSubscription> findByUserId(@Param("userId") Long userId);
-
+    List<TopicSubscription> findByUserIdOrderBySubscribedAtDesc(Long userId);
+    
     /**
-     * 查找 Stream 的订阅
+     * 根据Stream和Topic查找订阅者
      */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.streamId = :streamId ORDER BY t.topicName")
-    List<TopicSubscription> findByStreamId(@Param("streamId") Long streamId);
-
+    List<TopicSubscription> findByStreamIdAndTopic(Long streamId, String topic);
+    
     /**
-     * 查找特定订阅
+     * 根据用户和Stream/Topic查找订阅
      */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.userId = :userId AND t.streamId = :streamId AND t.topicName = :topicName")
-    Optional<TopicSubscription> findByUserStreamTopic(@Param("userId") Long userId, @Param("streamId") Long streamId, @Param("topicName") String topicName);
-
+    Optional<TopicSubscription> findByUserIdAndStreamIdAndTopic(Long userId, Long streamId, String topic);
+    
     /**
-     * 查找 Topic 的订阅者
+     * 检查用户是否订阅了话题
      */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.streamId = :streamId AND t.topicName = :topicName AND t.subscriptionType != 'MUTE'")
-    List<TopicSubscription> findTopicSubscribers(@Param("streamId") Long streamId, @Param("topicName") String topicName);
-
+    boolean existsByUserIdAndStreamIdAndTopic(Long userId, Long streamId, String topic);
+    
     /**
-     * 统计 Topic 订阅数
+     * 根据Stream查找订阅
      */
-    @Query("SELECT COUNT(t) FROM TopicSubscription t WHERE t.streamId = :streamId AND t.topicName = :topicName")
-    Long countByStreamIdAndTopicName(@Param("streamId") Long streamId, @Param("topicName") String topicName);
-
+    List<TopicSubscription> findByStreamId(Long streamId);
+    
     /**
-     * 统计用户订阅数
+     * 查找未静音的订阅者
      */
-    @Query("SELECT COUNT(t) FROM TopicSubscription t WHERE t.userId = :userId")
-    Long countByUserId(@Param("userId") Long userId);
-
-    /**
-     * 查找静音订阅
-     */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.userId = :userId AND t.subscriptionType = 'MUTE'")
-    List<TopicSubscription> findMutedSubscriptions(@Param("userId") Long userId);
-
-    /**
-     * 查找通知订阅
-     */
-    @Query("SELECT t FROM TopicSubscription t WHERE t.userId = :userId AND t.subscriptionType = 'NOTIFY'")
-    List<TopicSubscription> findNotifySubscriptions(@Param("userId") Long userId);
-
+    @Query("SELECT ts FROM TopicSubscription ts WHERE ts.streamId = :streamId AND ts.topic = :topic AND ts.isMuted = false")
+    List<TopicSubscription> findActiveSubscribers(@Param("streamId") Long streamId, @Param("topic") String topic);
+    
     /**
      * 删除订阅
      */
-    @Query("DELETE FROM TopicSubscription t WHERE t.userId = :userId AND t.streamId = :streamId AND t.topicName = :topicName")
-    void deleteByUserStreamTopic(@Param("userId") Long userId, @Param("streamId") Long streamId, @Param("topicName") String topicName);
+    @Modifying
+    @Query("DELETE FROM TopicSubscription ts WHERE ts.userId = :userId AND ts.streamId = :streamId AND ts.topic = :topic")
+    void deleteByUserIdAndStreamIdAndTopic(@Param("userId") Long userId, @Param("streamId") Long streamId, @Param("topic") String topic);
+    
+    /**
+     * 统计话题的订阅者数量
+     */
+    @Query("SELECT COUNT(ts) FROM TopicSubscription ts WHERE ts.streamId = :streamId AND ts.topic = :topic")
+    long countByStreamIdAndTopic(@Param("streamId") Long streamId, @Param("topic") String topic);
+    
+    /**
+     * 查找用户在某个Stream的订阅
+     */
+    List<TopicSubscription> findByUserIdAndStreamId(Long userId, Long streamId);
 }

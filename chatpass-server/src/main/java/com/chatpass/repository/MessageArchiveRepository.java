@@ -11,28 +11,62 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 消息归档仓库
+ */
 @Repository
 public interface MessageArchiveRepository extends JpaRepository<MessageArchive, Long> {
     
-    Optional<MessageArchive> findByArchiveId(String archiveId);
+    /**
+     * 根据组织ID查找归档消息
+     */
+    List<MessageArchive> findByRealmIdOrderByArchivedAtDesc(Long realmId);
     
-    Optional<MessageArchive> findByMessageId(Long messageId);
+    /**
+     * 根据原消息ID查找归档
+     */
+    Optional<MessageArchive> findByOriginalMessageId(Long originalMessageId);
     
-    List<MessageArchive> findByRealmId(Long realmId);
+    /**
+     * 根据Stream查找归档
+     */
+    List<MessageArchive> findByStreamIdOrderByArchivedAtDesc(Long streamId);
     
-    List<MessageArchive> findByRealmIdAndArchiveReason(Long realmId, String archiveReason);
+    /**
+     * 根据时间范围查找归档
+     */
+    @Query("SELECT ma FROM MessageArchive ma WHERE ma.realmId = :realmId AND ma.archivedAt BETWEEN :start AND :end ORDER BY ma.archivedAt DESC")
+    List<MessageArchive> findByRealmIdAndArchivedAtBetween(@Param("realmId") Long realmId, 
+                                                             @Param("start") LocalDateTime start, 
+                                                             @Param("end") LocalDateTime end);
     
-    @Query("SELECT ma FROM MessageArchive ma WHERE ma.realmId = :realmId AND ma.archiveDate BETWEEN :start AND :end")
-    List<MessageArchive> findByRealmIdAndTimeRange(@Param("realmId") Long realmId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    /**
+     * 查找可恢复的归档
+     */
+    @Query("SELECT ma FROM MessageArchive ma WHERE ma.realmId = :realmId AND ma.isRecoverable = true AND ma.recoverUntil >= :now ORDER BY ma.archivedAt DESC")
+    List<MessageArchive> findRecoverableArchives(@Param("realmId") Long realmId, @Param("now") LocalDateTime now);
     
-    @Query("SELECT COUNT(ma) FROM MessageArchive ma WHERE ma.realmId = :realmId AND ma.isDeleted = false")
-    Long countActiveArchives(@Param("realmId") Long realmId);
+    /**
+     * 统计归档消息数量
+     */
+    long countByRealmId(Long realmId);
     
+    /**
+     * 标记为不可恢复
+     */
     @Modifying
-    @Query("UPDATE MessageArchive ma SET ma.restoreCount = ma.restoreCount + 1, ma.lastRestored = :lastRestored WHERE ma.id = :id")
-    void incrementRestoreCount(@Param("id") Long id, @Param("lastRestored") LocalDateTime lastRestored);
+    @Query("UPDATE MessageArchive ma SET ma.isRecoverable = false WHERE ma.recoverUntil < :now")
+    void markUnrecoverable(@Param("now") LocalDateTime now);
     
+    /**
+     * 删除过期归档
+     */
     @Modifying
-    @Query("UPDATE MessageArchive ma SET ma.isDeleted = true WHERE ma.id = :id")
-    void markDeleted(@Param("id") Long id);
+    @Query("DELETE FROM MessageArchive ma WHERE ma.isRecoverable = false AND ma.archivedAt < :threshold")
+    void deleteOldArchives(@Param("threshold") LocalDateTime threshold);
+    
+    /**
+     * 根据归档策略查找
+     */
+    List<MessageArchive> findByRealmIdAndArchivePolicyOrderByArchivedAtDesc(Long realmId, String archivePolicy);
 }
