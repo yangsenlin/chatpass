@@ -5,56 +5,88 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 
 /**
- * UserPresence 实体 - 用户在线状态
+ * 用户在线状态实体
+ * 用于管理用户的在线/离线状态
  */
+@Entity
+@Table(name = "user_presences")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "user_presences", indexes = {
-    @Index(name = "idx_presence_user", columnList = "user_profile_id")
-}, uniqueConstraints = {
-    @UniqueConstraint(name = "uniq_user_presence", columnNames = {"user_profile_id"})
-})
 public class UserPresence {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_profile_id", nullable = false)
-    private UserProfile user;
-
-    // 状态：active, idle, offline
+    
+    /**
+     * 用户ID
+     */
+    @Column(name = "user_id", nullable = false, unique = true)
+    private Long userId;
+    
+    /**
+     * 在线状态
+     */
     @Column(name = "status", length = 20)
     @Builder.Default
-    private String status = "offline";
-
-    // 最后活跃时间
-    @Column(name = "last_active_time")
-    private LocalDateTime lastActiveTime;
-
-    // 最后推送时间
-    @Column(name = "last_push_received_time")
-    private LocalDateTime lastPushReceivedTime;
-
-    @CreationTimestamp
-    @Column(name = "date_created", nullable = false, updatable = false)
-    private LocalDateTime dateCreated;
-
-    @UpdateTimestamp
-    @Column(name = "last_updated", nullable = false)
-    private LocalDateTime lastUpdated;
-
-    public static final String STATUS_ACTIVE = "active";
-    public static final String STATUS_IDLE = "idle";
-    public static final String STATUS_OFFLINE = "offline";
+    private String status = "offline"; // online, offline, idle, busy
+    
+    /**
+     * 状态消息
+     */
+    @Column(name = "status_message", length = 200)
+    private String statusMessage;
+    
+    /**
+     * 最后活跃时间
+     */
+    @Column(name = "last_active")
+    private LocalDateTime lastActive;
+    
+    /**
+     * 最后离线时间
+     */
+    @Column(name = "last_offline")
+    private LocalDateTime lastOffline;
+    
+    /**
+     * 所属组织ID
+     */
+    @Column(name = "realm_id")
+    private Long realmId;
+    
+    /**
+     * 更新时间
+     */
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    /**
+     * 是否推送通知开启
+     */
+    @Column(name = "push_notifications")
+    @Builder.Default
+    private Boolean pushNotifications = true;
+    
+    /**
+     * 是否显示离线状态
+     */
+    @Column(name = "show_offline")
+    @Builder.Default
+    private Boolean showOffline = false;
+    
+    @PrePersist
+    protected void onCreate() {
+        updatedAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
