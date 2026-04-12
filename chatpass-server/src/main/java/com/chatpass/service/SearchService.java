@@ -1,31 +1,18 @@
 package com.chatpass.service;
 
-import com.chatpass.entity.Message;
-import com.chatpass.entity.Realm;
-import com.chatpass.entity.SearchHistory;
-import com.chatpass.entity.Stream;
-import com.chatpass.entity.UserProfile;
-import com.chatpass.repository.MessageRepository;
-import com.chatpass.repository.RealmRepository;
-import com.chatpass.repository.StreamRepository;
-import com.chatpass.repository.UserProfileRepository;
-import com.chatpass.repository.SearchHistoryRepository;
+import com.chatpass.entity.*;
+import com.chatpass.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 /**
- * SearchService
- * 
- * 消息搜索服务（增强版）
+ * SearchService - 搜索增强服务
  */
 @Service
 @RequiredArgsConstructor
@@ -33,255 +20,114 @@ import java.util.stream.Collectors;
 public class SearchService {
 
     private final MessageRepository messageRepository;
-    private final RealmRepository realmRepository;
     private final StreamRepository streamRepository;
     private final UserProfileRepository userRepository;
-    private final SearchHistoryRepository searchHistoryRepository;
 
     /**
-     * 全局搜索消息（内容匹配）
+     * 全文搜索（简化版）
      */
-    public List<Message> searchMessages(Long realmId, String query, int limit) {
-        Realm realm = realmRepository.findById(realmId)
-                .orElseThrow(() -> new IllegalArgumentException("Realm 不存在"));
-        
-        if (query == null || query.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
-        
-        List<Message> messages = messageRepository.searchByContent(realmId, query);
+    @Transactional(readOnly = true)
+    public List<Message> searchMessages(Long realmId, String query) {
+        List<Message> messages = messageRepository.findByRealmIdOrderByDateSentDesc(realmId, PageRequest.of(0, 1000)).getContent();
         
         return messages.stream()
-                .limit(limit)
+                .filter(m -> matchesQuery(m, query))
                 .collect(Collectors.toList());
     }
 
     /**
-     * 搜索消息（带分页）
+     * 在频道内搜索
      */
-    public Page<Message> searchMessagesPaged(Long realmId, String query, int page, int size) {
-        Realm realm = realmRepository.findById(realmId)
-                .orElseThrow(() -> new IllegalArgumentException("Realm 不存在"));
-        
-        if (query == null || query.trim().isEmpty()) {
-            return Page.empty();
-        }
-        
-        return messageRepository.searchByContentPaged(realmId, query, PageRequest.of(page, size));
-    }
-
-    /**
-     * 搜索特定频道的消息
-     */
-    public List<Message> searchStreamMessages(Long streamId, String query, int limit) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        List<Message> messages = messageRepository.searchByStreamIdAndContent(streamId, query);
+    @Transactional(readOnly = true)
+    public List<Message> searchInStream(Long streamId, String query) {
+        List<Message> messages = messageRepository.findAll();
         
         return messages.stream()
-                .limit(limit)
+                .filter(m -> m.getRecipient() != null && m.getRecipient().getStreamId() != null && m.getRecipient().getStreamId().equals(streamId))
+                .filter(m -> matchesQuery(m, query))
+                .limit(100)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 搜索特定话题的消息
+     * 搜索用户消息
      */
-    public List<Message> searchTopicMessages(Long streamId, String topic, String query, int limit) {
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-        
-        List<Message> messages = messageRepository.searchByStreamIdTopicAndContent(streamId, topic, query);
+    @Transactional(readOnly = true)
+    public List<Message> searchByUser(Long userId, String query) {
+        List<Message> messages = messageRepository.findBySenderIdOrderByDateSentDesc(userId);
         
         return messages.stream()
-                .limit(limit)
+                .filter(m -> matchesQuery(m, query))
+                .limit(100)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 搜索用户发送的消息
+     * 搜索话题
      */
-    public List<Message> searchUserMessages(Long userId, String query, int limit) {
-        UserProfile user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-        
-        List<Message> messages = messageRepository.searchBySenderIdAndContent(userId, query);
+    @Transactional(readOnly = true)
+    public List<Message> searchByTopic(Long streamId, String topic) {
+        List<Message> messages = messageRepository.findAll();
         
         return messages.stream()
-                .limit(limit)
+                .filter(m -> m.getRecipient() != null && m.getRecipient().getStreamId() != null && m.getRecipient().getStreamId().equals(streamId))
+                .filter(m -> m.getSubject() != null && m.getSubject().contains(topic))
+                .limit(100)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 搜索建议（返回关键词提示）
+     * 搜索统计
      */
-    public List<String> getSearchSuggestions(Long realmId, String query) {
-        // 从消息中提取关键词建议
-        List<Message> messages = searchMessages(realmId, query, 20);
-        
-        Set<String> suggestions = new HashSet<>();
-        for (Message msg : messages) {
-            // 提取消息内容中的关键词
-            String content = msg.getContent();
-            if (content != null) {
-                // 简单关键词提取（按空格分割）
-                Arrays.stream(content.toLowerCase().split("\\s+"))
-                        .filter(word -> word.length() > 2)
-                        .filter(word -> word.contains(query.toLowerCase()))
-                        .forEach(suggestions::add);
-            }
-        }
-        
-        return suggestions.stream()
-                .sorted()
-                .limit(10)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 搜索历史记录（返回用户最近搜索过的关键词）
-     */
-    public Map<String, Object> getSearchHistory(Long userId, int limit) {
-        List<SearchHistory> history = searchHistoryRepository.findRecentByUserId(userId, limit);
-        
-        List<Map<String, Object>> recentSearches = history.stream()
-                .map(h -> Map.<String, Object>of(
-                        "query", h.getQuery(),
-                        "search_type", h.getSearchType() != null ? h.getSearchType() : "",
-                        "results_count", h.getResultsCount() != null ? h.getResultsCount() : 0,
-                        "date_searched", h.getDateSearched().toString()
-                ))
-                .collect(Collectors.toList());
-        
-        return Map.of(
-                "user_id", userId,
-                "recent_searches", recentSearches
-        );
-    }
-
-    /**
-     * 记录搜索历史
-     */
-    @Transactional
-    public void recordSearchHistory(Long userId, Long realmId, String query, String searchType, int resultsCount) {
-        SearchHistory history = SearchHistory.builder()
-                .userId(userId)
-                .realmId(realmId)
-                .query(query)
-                .searchType(searchType)
-                .resultsCount(resultsCount)
-                .dateSearched(LocalDateTime.now())
-                .build();
-        
-        searchHistoryRepository.save(history);
-    }
-
-    /**
-     * 获取热门搜索关键词
-     */
-    public List<Map<String, Object>> getPopularSearches(Long userId, int limit) {
-        List<Object[]> popular = searchHistoryRepository.findPopularQueriesByUserId(userId);
-        
-        return popular.stream()
-                .limit(limit)
-                .map(p -> Map.<String, Object>of(
-                        "query", (String) p[0],
-                        "count", ((Number) p[1]).longValue()
-                ))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 清除搜索历史
-     */
-    @Transactional
-    public void clearSearchHistory(Long userId) {
-        searchHistoryRepository.deleteByUserId(userId);
-    }
-
-    /**
-     * 清除过期搜索历史（超过30天）
-     */
-    @Transactional
-    public int cleanupOldSearchHistory(Long userId) {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
-        List<SearchHistory> oldHistory = searchHistoryRepository.findByUserIdOrderByDateSearchedDesc(userId)
-                .stream()
-                .filter(h -> h.getDateSearched().isBefore(cutoff))
-                .collect(Collectors.toList());
-        
-        int count = oldHistory.size();
-        for (SearchHistory h : oldHistory) {
-            searchHistoryRepository.delete(h);
-        }
-        
-        return count;
-    }
-
-    /**
-     * 高级搜索（多条件组合）
-     */
-    public List<Message> advancedSearch(
-            Long realmId,
-            String query,
-            Long streamId,
-            Long senderId,
-            String topic,
-            LocalDateTime dateFrom,
-            LocalDateTime dateTo,
-            int limit) {
-        
-        List<Message> baseMessages = searchMessages(realmId, query, 1000);
-        
-        // 过滤条件
-        List<Message> filtered = baseMessages.stream()
-                .filter(m -> streamId == null || m.getRecipient().getStreamId() != null 
-                        && m.getRecipient().getStreamId().equals(streamId))
-                .filter(m -> senderId == null || m.getSender().getId().equals(senderId))
-                .filter(m -> topic == null || topic.isEmpty() 
-                        || (m.getSubject() != null && m.getSubject().equals(topic)))
-                .filter(m -> dateFrom == null || m.getDateSent().isAfter(dateFrom))
-                .filter(m -> dateTo == null || m.getDateSent().isBefore(dateTo))
-                .limit(limit)
-                .collect(Collectors.toList());
-        
-        return filtered;
-    }
-
-    /**
-     * 搜索结果统计
-     */
+    @Transactional(readOnly = true)
     public Map<String, Object> getSearchStats(Long realmId, String query) {
-        List<Message> messages = searchMessages(realmId, query, 1000);
+        List<Message> results = searchMessages(realmId, query);
         
-        // 按频道分组统计
-        Map<String, Long> byStream = messages.stream()
-                .filter(m -> m.getRecipient().getStreamId() != null)
+        // 统计频道分布
+        Map<Long, Integer> streamDistribution = results.stream()
+                .filter(m -> m.getRecipient() != null && m.getRecipient().getStreamId() != null)
                 .collect(Collectors.groupingBy(
-                        m -> String.valueOf(m.getRecipient().getStreamId()),
-                        Collectors.counting()
+                        m -> m.getRecipient().getStreamId(),
+                        Collectors.summingInt(e -> 1)
                 ));
         
-        // 按话题分组统计
-        Map<String, Long> byTopic = messages.stream()
-                .filter(m -> m.getSubject() != null && !m.getSubject().isEmpty())
+        // 统计发送者分布
+        Map<Long, Integer> senderDistribution = results.stream()
                 .collect(Collectors.groupingBy(
-                        Message::getSubject,
-                        Collectors.counting()
-                ));
-        
-        // 按发送者分组统计
-        Map<String, Long> bySender = messages.stream()
-                .collect(Collectors.groupingBy(
-                        m -> m.getSender().getFullName(),
-                        Collectors.counting()
+                        m -> m.getSender().getId(),
+                        Collectors.summingInt(e -> 1)
                 ));
         
         return Map.of(
-                "total_results", messages.size(),
-                "by_stream", byStream,
-                "by_topic", byTopic,
-                "by_sender", bySender
+                "query", query,
+                "total_results", results.size(),
+                "stream_distribution", streamDistribution,
+                "sender_distribution", senderDistribution
         );
+    }
+
+    /**
+     * 检查消息是否匹配查询
+     */
+    private boolean matchesQuery(Message message, String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return true;
+        }
+        
+        String lowerQuery = query.toLowerCase();
+        
+        // 搜索消息内容
+        if (message.getContent() != null && 
+            message.getContent().toLowerCase().contains(lowerQuery)) {
+            return true;
+        }
+        
+        // 搜索话题
+        if (message.getSubject() != null && 
+            message.getSubject().toLowerCase().contains(lowerQuery)) {
+            return true;
+        }
+        
+        return false;
     }
 }

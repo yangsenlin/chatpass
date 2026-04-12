@@ -35,6 +35,9 @@ public interface UserGroupMembershipRepository extends JpaRepository<UserGroupMe
     
     @Query("SELECT COUNT(m) FROM UserGroupMembership m WHERE m.group.id = :groupId")
     Long countByGroupId(@Param("groupId") Long groupId);
+
+    @Query("SELECT m.user.id FROM UserGroupMembership m WHERE m.group.id = :groupId")
+    List<Long> findUserIdsByGroupId(@Param("groupId") Long groupId);
     
     boolean existsByGroupAndUser(UserGroup group, UserProfile user);
     
