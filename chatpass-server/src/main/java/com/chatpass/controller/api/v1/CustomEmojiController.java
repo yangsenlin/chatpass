@@ -1,135 +1,132 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.CustomEmojiDTO;
-import com.chatpass.entity.CustomEmoji;
-import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.CustomEmojiService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
- * CustomEmoji 控制器
- * 
- * 自定义表情 API
+ * 自定义表情控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Custom Emojis", description = "自定义表情 API")
+@Slf4j
 public class CustomEmojiController {
-
+    
     private final CustomEmojiService emojiService;
-    private final SecurityUtil securityUtil;
-
-    @GetMapping("/emojis")
-    @Operation(summary = "获取所有表情")
-    public ResponseEntity<ApiResponse<List<CustomEmojiDTO.EmojiResponse>>> getAllEmojis() {
-        Long realmId = securityUtil.getCurrentRealmId();
+    
+    /**
+     * 上传表情
+     */
+    @PostMapping("/realm/{realmId}/emojis")
+    public ResponseEntity<CustomEmojiDTO> uploadEmoji(
+            @PathVariable Long realmId,
+            @RequestParam String name,
+            @RequestParam(required = false) String aliases,
+            @RequestParam Long authorId,
+            @RequestParam("file") MultipartFile file) throws IOException {
         
-        List<CustomEmoji> emojis = emojiService.getAllEmojis(realmId);
-        
-        List<CustomEmojiDTO.EmojiResponse> response = emojis.stream()
-                .map(emojiService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+        CustomEmojiDTO emoji = emojiService.uploadEmoji(realmId, name, aliases, authorId, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(emoji);
     }
-
+    
+    /**
+     * 获取组织的所有表情
+     */
+    @GetMapping("/realm/{realmId}/emojis")
+    public ResponseEntity<List<CustomEmojiDTO>> getRealmEmojis(@PathVariable Long realmId) {
+        List<CustomEmojiDTO> emojis = emojiService.getEmojisByRealm(realmId);
+        return ResponseEntity.ok(emojis);
+    }
+    
+    /**
+     * 获取表情详情
+     */
     @GetMapping("/emojis/{emojiId}")
-    @Operation(summary = "获取表情详情")
-    public ResponseEntity<ApiResponse<CustomEmojiDTO.EmojiResponse>> getEmoji(
-            @PathVariable Long emojiId) {
-        CustomEmoji emoji = emojiService.getEmoji(emojiId)
-                .orElseThrow(() -> new IllegalArgumentException("表情不存在"));
-        
-        return ResponseEntity.ok(ApiResponse.success(emojiService.toResponse(emoji)));
+    public ResponseEntity<CustomEmojiDTO> getEmoji(@PathVariable Long emojiId) {
+        return emojiService.getEmojiById(emojiId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @GetMapping("/emojis/name/{name}")
-    @Operation(summary = "根据名称获取表情")
-    public ResponseEntity<ApiResponse<CustomEmojiDTO.EmojiResponse>> getEmojiByName(
+    
+    /**
+     * 根据名称获取表情
+     */
+    @GetMapping("/realm/{realmId}/emojis/name/{name}")
+    public ResponseEntity<CustomEmojiDTO> getEmojiByName(
+            @PathVariable Long realmId,
             @PathVariable String name) {
-        Long realmId = securityUtil.getCurrentRealmId();
         
-        CustomEmoji emoji = emojiService.getEmojiByName(realmId, name)
-                .orElseThrow(() -> new IllegalArgumentException("表情不存在"));
-        
-        return ResponseEntity.ok(ApiResponse.success(emojiService.toResponse(emoji)));
+        return emojiService.getEmojiByName(realmId, name)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @PostMapping("/emojis")
-    @Operation(summary = "创建自定义表情")
-    public ResponseEntity<ApiResponse<CustomEmojiDTO.EmojiResponse>> createEmoji(
-            @RequestBody CustomEmojiDTO.CreateRequest request) {
-        Long realmId = securityUtil.getCurrentRealmId();
-        Long userId = securityUtil.getCurrentUserId();
+    
+    /**
+     * 搜索表情
+     */
+    @GetMapping("/realm/{realmId}/emojis/search")
+    public ResponseEntity<List<CustomEmojiDTO>> searchEmojis(
+            @PathVariable Long realmId,
+            @RequestParam String keyword) {
         
-        CustomEmoji emoji = emojiService.createEmoji(realmId, userId, request);
-        
-        return ResponseEntity.ok(ApiResponse.success(emojiService.toResponse(emoji)));
+        List<CustomEmojiDTO> emojis = emojiService.searchEmojis(realmId, keyword);
+        return ResponseEntity.ok(emojis);
     }
-
-    @PutMapping("/emojis/{emojiId}")
-    @Operation(summary = "更新表情")
-    public ResponseEntity<ApiResponse<CustomEmojiDTO.EmojiResponse>> updateEmoji(
+    
+    /**
+     * 更新表情别名
+     */
+    @PatchMapping("/emojis/{emojiId}/aliases")
+    public ResponseEntity<CustomEmojiDTO> updateAliases(
             @PathVariable Long emojiId,
-            @RequestBody CustomEmojiDTO.UpdateRequest request) {
-        CustomEmoji emoji = emojiService.updateEmoji(emojiId, request);
+            @RequestParam String aliases) {
         
-        return ResponseEntity.ok(ApiResponse.success(emojiService.toResponse(emoji)));
+        CustomEmojiDTO emoji = emojiService.updateAliases(emojiId, aliases);
+        return ResponseEntity.ok(emoji);
     }
-
-    @DeleteMapping("/emojis/{emojiId}")
-    @Operation(summary = "删除表情")
-    public ResponseEntity<ApiResponse<Void>> deleteEmoji(@PathVariable Long emojiId) {
-        emojiService.deleteEmoji(emojiId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
+    
+    /**
+     * 禁用表情
+     */
+    @PostMapping("/emojis/{emojiId}/deactivate")
+    public ResponseEntity<Void> deactivateEmoji(@PathVariable Long emojiId) {
+        emojiService.deactivateEmoji(emojiId);
+        return ResponseEntity.ok().build();
     }
-
-    @GetMapping("/emojis/search")
-    @Operation(summary = "搜索表情")
-    public ResponseEntity<ApiResponse<List<CustomEmojiDTO.EmojiResponse>>> searchEmojis(
-            @RequestParam String query) {
-        Long realmId = securityUtil.getCurrentRealmId();
-        
-        List<CustomEmoji> emojis = emojiService.searchEmojis(realmId, query);
-        
-        List<CustomEmojiDTO.EmojiResponse> response = emojis.stream()
-                .map(emojiService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+    
+    /**
+     * 恢复表情
+     */
+    @PostMapping("/emojis/{emojiId}/reactivate")
+    public ResponseEntity<Void> reactivateEmoji(@PathVariable Long emojiId) {
+        emojiService.reactivateEmoji(emojiId);
+        return ResponseEntity.ok().build();
     }
-
-    @GetMapping("/users/me/emojis")
-    @Operation(summary = "获取我创建的表情")
-    public ResponseEntity<ApiResponse<List<CustomEmojiDTO.EmojiResponse>>> getMyEmojis() {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        List<CustomEmoji> emojis = emojiService.getUserEmojis(userId);
-        
-        List<CustomEmojiDTO.EmojiResponse> response = emojis.stream()
-                .map(emojiService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+    
+    /**
+     * 记录使用
+     */
+    @PostMapping("/emojis/{emojiId}/use")
+    public ResponseEntity<Void> recordUsage(@PathVariable Long emojiId) {
+        emojiService.recordUsage(emojiId);
+        return ResponseEntity.ok().build();
     }
-
-    @GetMapping("/emojis/count")
-    @Operation(summary = "统计表情数量")
-    public ResponseEntity<ApiResponse<Long>> getEmojiCount() {
-        Long realmId = securityUtil.getCurrentRealmId();
-        
-        Long count = emojiService.getEmojiCount(realmId);
-        
-        return ResponseEntity.ok(ApiResponse.success(count));
+    
+    /**
+     * 获取用户创建的表情
+     */
+    @GetMapping("/users/{authorId}/emojis")
+    public ResponseEntity<List<CustomEmojiDTO>> getUserEmojis(@PathVariable Long authorId) {
+        List<CustomEmojiDTO> emojis = emojiService.getEmojisByAuthor(authorId);
+        return ResponseEntity.ok(emojis);
     }
 }

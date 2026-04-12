@@ -3,370 +3,286 @@ package com.chatpass.service;
 import com.chatpass.dto.BotDTO;
 import com.chatpass.dto.MessageDTO;
 import com.chatpass.entity.Bot;
-import com.chatpass.entity.BotCommand;
-import com.chatpass.entity.Message;
-import com.chatpass.entity.Stream;
+import com.chatpass.entity.Realm;
 import com.chatpass.entity.UserProfile;
 import com.chatpass.repository.BotRepository;
-import com.chatpass.repository.BotCommandRepository;
+import com.chatpass.repository.RealmRepository;
 import com.chatpass.repository.UserProfileRepository;
-import com.chatpass.repository.StreamRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * BotService
- * 
- * 机器人管理服务
+ * 机器人服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BotService {
-
+    
     private final BotRepository botRepository;
-    private final BotCommandRepository commandRepository;
     private final UserProfileRepository userRepository;
-    private final ObjectMapper objectMapper;
-    private final AuditLogService auditLogService;
+    private final RealmRepository realmRepository;
     private final MessageService messageService;
-    private final StreamRepository streamRepository;
-
+    
     /**
-     * 创建 Bot
+     * 创建Bot
      */
     @Transactional
-    public Bot createBot(Long ownerId, String name, String botType, String description) {
-        UserProfile owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
-        Long realmId = owner.getRealm().getId();
-
+    public BotDTO.BotInfo createBot(Long realmId, String name, String botType, 
+                                      String description, String webhookUrl, Long ownerId) {
+        
         // 检查名称是否已存在
-        if (botRepository.existsByName(name, realmId)) {
-            throw new IllegalStateException("Bot 名称已存在");
+        if (botRepository.findByRealmIdAndName(realmId, name).isPresent()) {
+            throw new IllegalArgumentException("Bot名称已存在: " + name);
         }
-
-        // 创建 Bot 用户（UserProfile）
-        UserProfile botUser = new UserProfile();
-        botUser.setFullName(name);
-        botUser.setEmail("bot-" + name.toLowerCase() + "@chatpass.local");
-        botUser.setRealm(owner.getRealm());
-        // UserProfile 可能没有 isBot 字段
-        botUser.setIsActive(true);
-        botUser = userRepository.save(botUser);
-
-        // 创建 Bot
-        Bot bot = Bot.builder()
-                .name(name)
-                .botType(botType)
-                .botUserId(botUser.getId())
-                .apiKey(Bot.generateApiKey())
-                .ownerId(ownerId)
-                .realmId(realmId)
-                .description(description)
+        
+        // 创建Bot用户
+        UserProfile botUser = UserProfile.builder()
+                .fullName(name)
+                .email(name + "-bot@chatpass.local")
+                .botType(1) // 1=Generic bot
                 .isActive(true)
                 .build();
-
+        
+        // 设置Realm
+        Realm realm = realmRepository.findById(realmId)
+                .orElseThrow(() -> new IllegalArgumentException("Realm不存在: " + realmId));
+        botUser.setRealm(realm);
+        
+        botUser = userRepository.save(botUser);
+        
+        // 生成API Key
+        String apiKey = generateApiKey();
+        
+        // 创建Bot
+        Bot bot = Bot.builder()
+                .userId(botUser.getId())
+                .name(name)
+                .botType(botType != null ? botType : "generic")
+                .apiKey(apiKey)
+                .realmId(realmId)
+                .ownerId(ownerId)
+                .description(description)
+                .webhookUrl(webhookUrl)
+                .isActive(true)
+                .build();
+        
         bot = botRepository.save(bot);
-
-        // 记录审计日志
-        auditLogService.logCreate(ownerId, AuditLogService.RESOURCE_BOT, bot.getId(), 
-                BotDTO.BotResponse.builder()
-                        .id(bot.getId())
-                        .name(name)
-                        .botType(botType)
-                        .apiKey(bot.getApiKey())
-                        .build());
-
-        log.info("Bot created: {} by user {}", name, ownerId);
-
-        return bot;
+        log.info("创建Bot: {} (realmId: {}, owner: {})", name, realmId, ownerId);
+        
+        return toBotInfo(bot);
     }
-
+    
     /**
-     * 更新 Bot
+     * 获取组织的所有Bot
+     */
+    public List<BotDTO.BotInfo> getBotsByRealm(Long realmId) {
+        return botRepository.findByRealmIdAndIsActiveTrueOrderByCreatedAtDesc(realmId)
+                .stream()
+                .map(this::toBotInfo)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取Bot详情
+     */
+    public Optional<BotDTO.BotInfo> getBotById(Long botId) {
+        return botRepository.findById(botId).map(this::toBotInfo);
+    }
+    
+    /**
+     * 根据API Key获取Bot
+     */
+    public Optional<BotDTO.BotInfo> getBotByApiKey(String apiKey) {
+        return botRepository.findByApiKey(apiKey).map(this::toBotInfo);
+    }
+    
+    /**
+     * 获取用户的Bot
+     */
+    public List<BotDTO.BotInfo> getBotsByOwner(Long ownerId) {
+        return botRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId)
+                .stream()
+                .map(this::toBotInfo)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 更新Bot信息
      */
     @Transactional
-    public Bot updateBot(Long botId, Long ownerId, String name, String description, String endpointUrl) {
+    public BotDTO.BotInfo updateBot(Long botId, String name, String description, 
+                                      String avatarUrl, String webhookUrl) {
+        
         Bot bot = botRepository.findById(botId)
-                .orElseThrow(() -> new IllegalArgumentException("Bot 不存在"));
-
-        // 验证所有者
-        if (!bot.getOwnerId().equals(ownerId)) {
-            throw new IllegalStateException("不是 Bot 所有者");
-        }
-
-        Bot oldBot = bot;
-
+                .orElseThrow(() -> new IllegalArgumentException("Bot不存在: " + botId));
+        
         if (name != null && !name.equals(bot.getName())) {
-            if (botRepository.existsByName(name, bot.getRealmId())) {
-                throw new IllegalStateException("Bot 名称已存在");
+            if (botRepository.findByRealmIdAndName(bot.getRealmId(), name).isPresent()) {
+                throw new IllegalArgumentException("Bot名称已存在: " + name);
             }
             bot.setName(name);
+            
+            // 更新Bot用户名称
+            UserProfile botUser = userRepository.findById(bot.getUserId())
+                    .orElseThrow(() -> new IllegalArgumentException("Bot用户不存在"));
+            botUser.setFullName(name);
+            userRepository.save(botUser);
         }
-
+        
         if (description != null) {
             bot.setDescription(description);
         }
-
-        if (endpointUrl != null) {
-            bot.setEndpointUrl(endpointUrl);
+        
+        if (avatarUrl != null) {
+            bot.setAvatarUrl(avatarUrl);
         }
-
+        
+        if (webhookUrl != null) {
+            bot.setWebhookUrl(webhookUrl);
+        }
+        
         bot = botRepository.save(bot);
-
-        // 记录审计日志
-        auditLogService.logUpdate(ownerId, AuditLogService.RESOURCE_BOT, bot.getId(), oldBot, bot);
-
-        log.info("Bot updated: {}", botId);
-
-        return bot;
+        log.info("更新Bot: {}", bot.getName());
+        
+        return toBotInfo(bot);
     }
-
+    
     /**
-     * 删除 Bot
+     * 重新生成API Key
      */
     @Transactional
-    public void deleteBot(Long botId, Long ownerId) {
+    public String regenerateApiKey(Long botId) {
         Bot bot = botRepository.findById(botId)
-                .orElseThrow(() -> new IllegalArgumentException("Bot 不存在"));
-
-        // 验证所有者
-        if (!bot.getOwnerId().equals(ownerId)) {
-            throw new IllegalStateException("不是 Bot 所有者");
-        }
-
-        // 删除所有命令
-        commandRepository.deleteByBotId(botId);
-
-        // 软删除 Bot
-        bot.setIsActive(false);
-        botRepository.save(bot);
-
-        // 删除 Bot 用户
-        userRepository.findById(bot.getBotUserId()).ifPresent(user -> {
-            user.setIsActive(false);
-            userRepository.save(user);
-        });
-
-        // 记录审计日志
-        auditLogService.logDelete(ownerId, AuditLogService.RESOURCE_BOT, bot.getId(), bot);
-
-        log.info("Bot deleted: {}", botId);
-    }
-
-    /**
-     * 获取 Bot 详情
-     */
-    public Bot getBot(Long botId) {
-        return botRepository.findById(botId)
-                .orElseThrow(() -> new IllegalArgumentException("Bot 不存在"));
-    }
-
-    /**
-     * 通过 API Key 获取 Bot
-     */
-    public Optional<Bot> getBotByApiKey(String apiKey) {
-        return botRepository.findByApiKey(apiKey);
-    }
-
-    /**
-     * 获取所有者的 Bot 列表
-     */
-    public List<Bot> getOwnerBots(Long ownerId) {
-        return botRepository.findByOwnerId(ownerId);
-    }
-
-    /**
-     * 获取 Realm 的 Bot 列表
-     */
-    public List<Bot> getRealmBots(Long realmId) {
-        return botRepository.findByRealmId(realmId);
-    }
-
-    /**
-     * 验证 API Key
-     */
-    public boolean validateApiKey(String apiKey) {
-        return botRepository.validateApiKey(apiKey);
-    }
-
-    /**
-     * 重置 API Key
-     */
-    @Transactional
-    public String resetApiKey(Long botId, Long ownerId) {
-        Bot bot = botRepository.findById(botId)
-                .orElseThrow(() -> new IllegalArgumentException("Bot 不存在"));
-
-        if (!bot.getOwnerId().equals(ownerId)) {
-            throw new IllegalStateException("不是 Bot 所有者");
-        }
-
-        String newApiKey = Bot.generateApiKey();
+                .orElseThrow(() -> new IllegalArgumentException("Bot不存在: " + botId));
+        
+        String newApiKey = generateApiKey();
         bot.setApiKey(newApiKey);
         botRepository.save(bot);
-
-        log.info("Bot API key reset: {}", botId);
-
+        
+        log.info("重新生成API Key: Bot={}", bot.getName());
         return newApiKey;
     }
-
+    
     /**
-     * 添加 Bot 命令
+     * 禁用Bot
      */
     @Transactional
-    public BotCommand addCommand(Long botId, String commandName, String description, String handler) {
+    public void deactivateBot(Long botId) {
         Bot bot = botRepository.findById(botId)
-                .orElseThrow(() -> new IllegalArgumentException("Bot 不存在"));
-
-        if (commandRepository.existsCommand(botId, commandName)) {
-            throw new IllegalStateException("命令已存在");
-        }
-
-        BotCommand command = BotCommand.builder()
-                .bot(bot)
-                .commandName(commandName)
-                .description(description)
-                .handler(handler)
-                .isActive(true)
-                .build();
-
-        command = commandRepository.save(command);
-
-        log.info("Bot command added: {} to bot {}", commandName, botId);
-
-        return command;
-    }
-
-    /**
-     * 获取 Bot 的所有命令
-     */
-    public List<BotCommand> getBotCommands(Long botId) {
-        return commandRepository.findByBotId(botId);
-    }
-
-    /**
-     * 删除命令
-     */
-    @Transactional
-    public void deleteCommand(Long commandId) {
-        BotCommand command = commandRepository.findById(commandId)
-                .orElseThrow(() -> new IllegalArgumentException("命令不存在"));
-
-        command.setIsActive(false);
-        commandRepository.save(command);
-
-        log.info("Bot command deleted: {}", commandId);
-    }
-
-    /**
-     * Bot 发送消息
-     */
-    @Transactional
-    public Long sendMessage(String apiKey, Long streamId, String topic, String content) {
-        Bot bot = botRepository.findByApiKey(apiKey)
-                .orElseThrow(() -> new IllegalArgumentException("无效的 API Key"));
-
-        if (!bot.getIsActive()) {
-            throw new IllegalStateException("Bot 已禁用");
-        }
-
-        // 获取 Stream
-        Stream stream = streamRepository.findById(streamId)
-                .orElseThrow(() -> new IllegalArgumentException("频道不存在"));
-
-        // 调用 MessageService 发送消息
-        MessageDTO.Response messageResponse = messageService.sendStreamMessage(
-                stream.getRealm().getId(),
-                bot.getBotUserId(),
-                streamId,
-                topic,
-                content
-        );
-
-        log.info("Bot {} sent message to stream {}", bot.getName(), streamId);
-
-        return messageResponse.getId();
-    }
-
-    /**
-     * Bot 发送私信
-     */
-    @Transactional
-    public Long sendPrivateMessage(String apiKey, Long recipientId, String content) {
-        Bot bot = botRepository.findByApiKey(apiKey)
-                .orElseThrow(() -> new IllegalArgumentException("无效的 API Key"));
-
-        if (!bot.getIsActive()) {
-            throw new IllegalStateException("Bot 已禁用");
-        }
-
-        UserProfile recipient = userRepository.findById(recipientId)
-                .orElseThrow(() -> new IllegalArgumentException("收件人不存在"));
-
-        // 调用 MessageService 发送私信
-        MessageDTO.Response messageResponse = messageService.sendDirectMessage(
-                bot.getRealmId(),
-                bot.getBotUserId(),
-                List.of(recipientId),
-                content
-        );
-
-        log.info("Bot {} sent private message to user {}", bot.getName(), recipientId);
-
-        return messageResponse.getId();
-    }
-
-    /**
-     * 搜索 Bot
-     */
-    public List<Bot> searchBots(Long realmId, String query) {
-        return botRepository.searchBots(realmId, query);
-    }
-
-    /**
-     * 统计 Bot 数量
-     */
-    public Long countRealmBots(Long realmId) {
-        return botRepository.countByRealmId(realmId);
-    }
-
-    /**
-     * 转换为 DTO
-     */
-    public BotDTO.BotResponse toResponse(Bot bot) {
-        List<BotCommand> commands = commandRepository.findActiveCommands(bot.getId());
+                .orElseThrow(() -> new IllegalArgumentException("Bot不存在: " + botId));
         
-        return BotDTO.BotResponse.builder()
+        bot.setIsActive(false);
+        botRepository.save(bot);
+        
+        // 禁用Bot用户
+        UserProfile botUser = userRepository.findById(bot.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Bot用户不存在"));
+        botUser.setIsActive(false);
+        userRepository.save(botUser);
+        
+        log.info("禁用Bot: {}", bot.getName());
+    }
+    
+    /**
+     * 激活Bot
+     */
+    @Transactional
+    public void activateBot(Long botId) {
+        Bot bot = botRepository.findById(botId)
+                .orElseThrow(() -> new IllegalArgumentException("Bot不存在: " + botId));
+        
+        bot.setIsActive(true);
+        botRepository.save(bot);
+        
+        // 激活Bot用户
+        UserProfile botUser = userRepository.findById(bot.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Bot用户不存在"));
+        botUser.setIsActive(true);
+        userRepository.save(botUser);
+        
+        log.info("激活Bot: {}", bot.getName());
+    }
+    
+    /**
+     * Bot发送消息
+     */
+    @Transactional
+    public MessageDTO.Response sendMessage(String apiKey, Long streamId, String topic, 
+                                             String content, List<Long> toUserIds) {
+        
+        Bot bot = botRepository.findByApiKey(apiKey)
+                .orElseThrow(() -> new IllegalArgumentException("无效的API Key"));
+        
+        if (!bot.getIsActive()) {
+            throw new IllegalStateException("Bot未激活");
+        }
+        
+        // 调用MessageService发送消息
+        Long botRealmId = bot.getRealmId();
+        if (streamId != null) {
+            return messageService.sendStreamMessage(bot.getUserId(), botRealmId, 
+                                                     streamId, topic, content);
+        } else if (toUserIds != null && !toUserIds.isEmpty()) {
+            return messageService.sendDirectMessage(bot.getUserId(), botRealmId, 
+                                                      toUserIds, content);
+        } else {
+            throw new IllegalArgumentException("必须指定streamId或toUserIds");
+        }
+    }
+    
+    /**
+     * 删除Bot
+     */
+    @Transactional
+    public void deleteBot(Long botId) {
+        Bot bot = botRepository.findById(botId)
+                .orElseThrow(() -> new IllegalArgumentException("Bot不存在: " + botId));
+        
+        // 删除Bot用户
+        userRepository.findById(bot.getUserId())
+                .ifPresent(userRepository::delete);
+        
+        // 删除Bot
+        botRepository.delete(bot);
+        log.info("删除Bot: {}", bot.getName());
+    }
+    
+    /**
+     * 验证API Key
+     */
+    public boolean validateApiKey(String apiKey) {
+        return botRepository.findByApiKey(apiKey)
+                .map(Bot::getIsActive)
+                .orElse(false);
+    }
+    
+    private String generateApiKey() {
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+    
+    private BotDTO.BotInfo toBotInfo(Bot bot) {
+        return BotDTO.BotInfo.builder()
                 .id(bot.getId())
+                .userId(bot.getUserId())
                 .name(bot.getName())
                 .botType(bot.getBotType())
-                .botUserId(bot.getBotUserId())
                 .apiKey(bot.getApiKey())
-                .ownerId(bot.getOwnerId())
                 .realmId(bot.getRealmId())
+                .ownerId(bot.getOwnerId())
                 .avatarUrl(bot.getAvatarUrl())
-                .endpointUrl(bot.getEndpointUrl())
                 .description(bot.getDescription())
+                .webhookUrl(bot.getWebhookUrl())
                 .isActive(bot.getIsActive())
-                .dateCreated(bot.getDateCreated().toString())
-                .commands(commands.stream()
-                        .map(c -> BotDTO.CommandResponse.builder()
-                                .id(c.getId())
-                                .commandName(c.getCommandName())
-                                .description(c.getDescription())
-                                .handler(c.getHandler())
-                                .build())
-                        .collect(Collectors.toList()))
+                .createdAt(bot.getCreatedAt())
+                .updatedAt(bot.getUpdatedAt())
                 .build();
     }
 }

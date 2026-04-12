@@ -1,16 +1,15 @@
 package com.chatpass.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * BotDTO
- * 
- * 机器人数据传输对象
+ * 机器人DTO
  */
 public class BotDTO {
 
@@ -18,111 +17,53 @@ public class BotDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class BotResponse {
+    public static class BotInfo {
         private Long id;
+        private Long userId;
         private String name;
         private String botType;
-        private Long botUserId;
         private String apiKey;
-        private Long ownerId;
         private Long realmId;
+        private Long ownerId;
         private String avatarUrl;
-        private String endpointUrl;
         private String description;
+        private String webhookUrl;
         private Boolean isActive;
-        private String dateCreated;
-        private List<CommandResponse> commands;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
     }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class CreateBotRequest {
+    public static class CreateRequest {
         private String name;
-        private String botType;      // OUTGOING, INCOMING, GENERIC
+        private String botType;
         private String description;
+        private String webhookUrl;
+        private Long ownerId;
     }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class UpdateBotRequest {
+    public static class UpdateRequest {
         private String name;
         private String description;
-        private String endpointUrl;  // Outgoing Bot 的服务端点
+        private String avatarUrl;
+        private String webhookUrl;
     }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class ApiKeyResponse {
-        private Long botId;
-        private String apiKey;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class CommandResponse {
-        private Long id;
-        private String commandName;
-        private String description;
-        private String handler;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class CreateCommandRequest {
-        private String commandName;  // 如 /weather
-        private String description;
-        private String handler;      // 处理器方法名或 URL
-    }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
     public static class SendMessageRequest {
-        private String apiKey;
         private Long streamId;
         private String topic;
         private String content;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class SendPrivateMessageRequest {
-        private String apiKey;
-        private Long recipientId;
-        private String content;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class SendMessageResponse {
-        private Long botUserId;
-        private Long streamId;
-        private Long recipientId;
-        private String topic;
-        private Boolean sent;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class BotListResponse {
-        private List<BotResponse> bots;
-        private Long total;
+        private List<Long> toUserIds;
     }
 }

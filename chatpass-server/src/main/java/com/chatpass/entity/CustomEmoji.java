@@ -5,79 +5,94 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 
 /**
- * CustomEmoji 实体 - 自定义表情
- * 对应 Zulip RealmEmoji model
+ * 自定义表情实体
+ * 用于组织上传的自定义表情
  */
+@Entity
+@Table(name = "custom_emojis")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "custom_emojis", indexes = {
-    @Index(name = "idx_emojis_realm", columnList = "realm_id"),
-    @Index(name = "idx_emojis_name", columnList = "name"),
-    @Index(name = "idx_emojis_author", columnList = "author_id")
-})
 public class CustomEmoji {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    // 所属 Realm
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "realm_id", nullable = false)
-    private Realm realm;
-
-    // 表情名称（用于消息中引用，如 :custom_emoji:）
-    @Column(name = "name", nullable = false, length = 64)
+    
+    /**
+     * 表情名称（用于引用）
+     */
+    @Column(nullable = false, unique = true, length = 100)
     private String name;
-
-    // 表情显示名称
-    @Column(name = "display_name", length = 128)
-    private String displayName;
-
-    // 表情图片 URL
-    @Column(name = "image_url", nullable = false)
+    
+    /**
+     * 表情别名（逗号分隔）
+     */
+    @Column(name = "aliases", length = 500)
+    private String aliases;
+    
+    /**
+     * 图片URL
+     */
+    @Column(name = "image_url", nullable = false, length = 500)
     private String imageUrl;
-
-    // 作者
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id")
-    private UserProfile author;
-
-    // 是否 deactivated（已删除）
-    @Column(name = "deactivated", nullable = false)
+    
+    /**
+     * 图片路径
+     */
+    @Column(name = "image_path", length = 500)
+    private String imagePath;
+    
+    /**
+     * 所属组织ID
+     */
+    @Column(name = "realm_id", nullable = false)
+    private Long realmId;
+    
+    /**
+     * 创建者ID
+     */
+    @Column(name = "author_id")
+    private Long authorId;
+    
+    /**
+     * 是否 deactivated
+     */
+    @Column(name = "deactivated")
     @Builder.Default
     private Boolean deactivated = false;
-
-    // 创建时间
-    @CreationTimestamp
-    @Column(name = "date_created", updatable = false)
-    private LocalDateTime dateCreated;
-
-    // 更新时间
-    @UpdateTimestamp
-    @Column(name = "date_updated")
-    private LocalDateTime dateUpdated;
-
+    
     /**
-     * 获取表情引用字符串
+     * 使用次数
      */
-    public String getEmojiCode() {
-        return ":" + name + ":";
+    @Column(name = "usage_count")
+    @Builder.Default
+    private Integer usageCount = 0;
+    
+    /**
+     * 创建时间
+     */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+    
+    /**
+     * 更新时间
+     */
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
-
-    /**
-     * 是否可用
-     */
-    public boolean isActive() {
-        return !deactivated;
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
