@@ -1,170 +1,154 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
 import com.chatpass.dto.StreamPermissionDTO;
-import com.chatpass.entity.Stream;
-import com.chatpass.entity.UserProfile;
-import com.chatpass.security.SecurityUtil;
 import com.chatpass.service.StreamPermissionService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
- * StreamPermission 控制器
- * 
- * 频道权限管理 API
+ * Stream权限控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Stream Permissions", description = "频道权限管理 API")
+@Slf4j
 public class StreamPermissionController {
-
+    
     private final StreamPermissionService permissionService;
-    private final SecurityUtil securityUtil;
-
+    
+    /**
+     * 添加用户权限
+     */
+    @PostMapping("/streams/{streamId}/permissions")
+    public ResponseEntity<StreamPermissionDTO> addPermission(
+            @PathVariable Long streamId,
+            @RequestParam Long userId,
+            @RequestParam String permissionType,
+            @RequestParam(required = false) Long realmId) {
+        
+        StreamPermissionDTO permission = permissionService.addPermission(streamId, userId, permissionType, realmId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(permission);
+    }
+    
+    /**
+     * 更新权限
+     */
+    @PatchMapping("/streams/{streamId}/permissions/{userId}")
+    public ResponseEntity<StreamPermissionDTO> updatePermission(
+            @PathVariable Long streamId,
+            @PathVariable Long userId,
+            @RequestParam(required = false) String permissionType,
+            @RequestParam(required = false) Boolean canRead,
+            @RequestParam(required = false) Boolean canWrite,
+            @RequestParam(required = false) Boolean canModifyTopic,
+            @RequestParam(required = false) Boolean canManageMembers,
+            @RequestParam(required = false) Boolean canDeleteMessages) {
+        
+        StreamPermissionDTO permission = permissionService.updatePermission(streamId, userId, 
+                permissionType, canRead, canWrite, canModifyTopic, canManageMembers, canDeleteMessages);
+        return ResponseEntity.ok(permission);
+    }
+    
+    /**
+     * 删除权限
+     */
+    @DeleteMapping("/streams/{streamId}/permissions/{userId}")
+    public ResponseEntity<Void> removePermission(
+            @PathVariable Long streamId,
+            @PathVariable Long userId) {
+        
+        permissionService.removePermission(streamId, userId);
+        return ResponseEntity.noContent().build();
+    }
+    
+    /**
+     * 获取Stream的所有权限
+     */
     @GetMapping("/streams/{streamId}/permissions")
-    @Operation(summary = "获取频道权限设置")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getStreamPermissions(
-            @PathVariable Long streamId) {
-        Map<String, Object> settings = permissionService.getStreamPermissionSettings(streamId);
-        
-        return ResponseEntity.ok(ApiResponse.success(settings));
+    public ResponseEntity<List<StreamPermissionDTO>> getStreamPermissions(@PathVariable Long streamId) {
+        List<StreamPermissionDTO> permissions = permissionService.getStreamPermissions(streamId);
+        return ResponseEntity.ok(permissions);
     }
-
-    @PutMapping("/streams/{streamId}/permissions")
-    @Operation(summary = "更新频道权限设置")
-    public ResponseEntity<ApiResponse<StreamPermissionDTO.PermissionResponse>> updateStreamPermissions(
+    
+    /**
+     * 获取用户的权限
+     */
+    @GetMapping("/users/{userId}/permissions")
+    public ResponseEntity<List<StreamPermissionDTO>> getUserPermissions(@PathVariable Long userId) {
+        List<StreamPermissionDTO> permissions = permissionService.getUserPermissions(userId);
+        return ResponseEntity.ok(permissions);
+    }
+    
+    /**
+     * 获取用户对Stream的权限
+     */
+    @GetMapping("/streams/{streamId}/permissions/{userId}")
+    public ResponseEntity<StreamPermissionDTO> getPermission(
             @PathVariable Long streamId,
-            @RequestBody StreamPermissionDTO.UpdateRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
+            @PathVariable Long userId) {
         
-        if (!permissionService.canManageStream(streamId, userId)) {
-            return ResponseEntity.status(403).body(ApiResponse.error("FORBIDDEN", "需要管理员权限"));
-        }
-        
-        Stream stream = permissionService.updateStreamPermission(streamId, request.getInviteOnly());
-        
-        return ResponseEntity.ok(ApiResponse.success(StreamPermissionDTO.PermissionResponse.builder()
-                .streamId(streamId)
-                .streamName(stream.getName())
-                .inviteOnly(stream.getInviteOnly())
-                .build()));
+        return permissionService.getPermission(streamId, userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
-
-    @GetMapping("/streams/{streamId}/can_access")
-    @Operation(summary = "检查用户是否可以访问频道")
-    public ResponseEntity<ApiResponse<Boolean>> canAccessStream(
+    
+    /**
+     * 检查用户是否有权限
+     */
+    @GetMapping("/streams/{streamId}/permissions/{userId}/check")
+    public ResponseEntity<Boolean> hasPermission(
             @PathVariable Long streamId,
-            @RequestParam Long userId) {
-        boolean canAccess = permissionService.canAccessStream(streamId, userId);
+            @PathVariable Long userId) {
         
-        return ResponseEntity.ok(ApiResponse.success(canAccess));
+        boolean hasPermission = permissionService.hasPermission(streamId, userId);
+        return ResponseEntity.ok(hasPermission);
     }
-
-    @GetMapping("/streams/{streamId}/can_post")
-    @Operation(summary = "检查用户是否可以发消息")
-    public ResponseEntity<ApiResponse<Boolean>> canPostToStream(
+    
+    /**
+     * 检查读权限
+     */
+    @GetMapping("/streams/{streamId}/permissions/{userId}/can_read")
+    public ResponseEntity<Boolean> canRead(
             @PathVariable Long streamId,
-            @RequestParam Long userId) {
-        boolean canPost = permissionService.canPostToStream(streamId, userId);
+            @PathVariable Long userId) {
         
-        return ResponseEntity.ok(ApiResponse.success(canPost));
+        boolean canRead = permissionService.canRead(streamId, userId);
+        return ResponseEntity.ok(canRead);
     }
-
-    @GetMapping("/streams/{streamId}/can_manage")
-    @Operation(summary = "检查用户是否可以管理频道")
-    public ResponseEntity<ApiResponse<Boolean>> canManageStream(
+    
+    /**
+     * 检查写权限
+     */
+    @GetMapping("/streams/{streamId}/permissions/{userId}/can_write")
+    public ResponseEntity<Boolean> canWrite(
             @PathVariable Long streamId,
-            @RequestParam Long userId) {
-        boolean canManage = permissionService.canManageStream(streamId, userId);
+            @PathVariable Long userId) {
         
-        return ResponseEntity.ok(ApiResponse.success(canManage));
+        boolean canWrite = permissionService.canWrite(streamId, userId);
+        return ResponseEntity.ok(canWrite);
     }
-
-    @GetMapping("/users/me/accessible_streams")
-    @Operation(summary = "获取当前用户可访问的频道")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getUserAccessibleStreams() {
-        Long userId = securityUtil.getCurrentUserId();
-        Long realmId = securityUtil.getCurrentRealmId();
-        
-        List<Stream> streams = permissionService.getUserAccessibleStreams(userId, realmId);
-        
-        List<Map<String, Object>> result = streams.stream()
-                .map(s -> Map.<String, Object>of(
-                        "id", s.getId(),
-                        "name", s.getName(),
-                        "description", s.getDescription() != null ? s.getDescription() : "",
-                        "invite_only", s.getInviteOnly()
-                ))
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(result));
+    
+    /**
+     * 获取Stream的管理员
+     */
+    @GetMapping("/streams/{streamId}/admins")
+    public ResponseEntity<List<StreamPermissionDTO>> getStreamAdmins(@PathVariable Long streamId) {
+        List<StreamPermissionDTO> admins = permissionService.getStreamAdmins(streamId);
+        return ResponseEntity.ok(admins);
     }
-
-    @GetMapping("/streams/{streamId}/members")
-    @Operation(summary = "获取频道成员列表")
-    public ResponseEntity<ApiResponse<List<StreamPermissionDTO.MemberInfo>>> getStreamMembers(
-            @PathVariable Long streamId) {
-        List<UserProfile> members = permissionService.getStreamMembers(streamId);
-        
-        List<StreamPermissionDTO.MemberInfo> memberInfos = members.stream()
-                .limit(50) // 限制返回数量
-                .map(u -> StreamPermissionDTO.MemberInfo.builder()
-                        .userId(u.getId())
-                        .userName(u.getFullName())
-                        .email(u.getEmail())
-                        .role(u.getRole())
-                        .build())
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(memberInfos));
-    }
-
-    @PostMapping("/streams/{streamId}/members")
-    @Operation(summary = "添加频道成员")
-    public ResponseEntity<ApiResponse<Void>> addStreamMember(
-            @PathVariable Long streamId,
-            @RequestBody StreamPermissionDTO.AddMemberRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        if (!permissionService.canManageStream(streamId, userId)) {
-            return ResponseEntity.status(403).body(ApiResponse.error("FORBIDDEN", "需要管理员权限"));
-        }
-        
-        permissionService.addStreamMember(streamId, request.getUserId());
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-    @DeleteMapping("/streams/{streamId}/members/{memberId}")
-    @Operation(summary = "移除频道成员")
-    public ResponseEntity<ApiResponse<Void>> removeStreamMember(
-            @PathVariable Long streamId,
-            @PathVariable Long memberId) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        if (!permissionService.canManageStream(streamId, userId)) {
-            return ResponseEntity.status(403).body(ApiResponse.error("FORBIDDEN", "需要管理员权限"));
-        }
-        
-        permissionService.removeStreamMember(streamId, memberId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-    @GetMapping("/streams/{streamId}/subscriber_count")
-    @Operation(summary = "获取频道订阅者数量")
-    public ResponseEntity<ApiResponse<Long>> getStreamSubscriberCount(@PathVariable Long streamId) {
-        Long count = permissionService.getStreamSubscriberCount(streamId);
-        
-        return ResponseEntity.ok(ApiResponse.success(count));
+    
+    /**
+     * 统计成员数量
+     */
+    @GetMapping("/streams/{streamId}/member_count")
+    public ResponseEntity<Long> countMembers(@PathVariable Long streamId) {
+        long count = permissionService.countMembers(streamId);
+        return ResponseEntity.ok(count);
     }
 }

@@ -1,9 +1,12 @@
 package com.chatpass.service;
 
-import com.chatpass.dto.AnalyticsDTO;
-import com.chatpass.entity.AnalyticsReport;
-import com.chatpass.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.chatpass.dto.AnalyticsDTO;
+import com.chatpass.entity.AnalyticsData;
+import com.chatpass.repository.AnalyticsDataRepository;
+import com.chatpass.repository.MessageRepository;
+import com.chatpass.repository.UserProfileRepository;
+import com.chatpass.repository.StreamRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,303 +20,202 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * AnalyticsService
- * 
  * 数据分析服务
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AnalyticsService {
-
-    private final AnalyticsReportRepository reportRepository;
+    
+    private final AnalyticsDataRepository analyticsRepository;
     private final MessageRepository messageRepository;
-    private final StreamRepository streamRepository;
     private final UserProfileRepository userRepository;
-    private final ReactionRepository reactionRepository;
+    private final StreamRepository streamRepository;
     private final ObjectMapper objectMapper;
-    private final AuditLogService auditLogService;
-
+    
     /**
-     * 生成用户活跃度报告
+     * 记录统计数据
      */
     @Transactional
-    public AnalyticsReport generateUserActivityReport(Long realmId, Long creatorId, 
-                                                       LocalDateTime start, LocalDateTime end,
-                                                       String period) {
-        try {
-            // 统计用户活跃度
-            Map<String, Object> data = new HashMap<>();
-            
-            // 消息发送统计
-            Long totalMessages = messageRepository.countByRealmId(realmId);
-            data.put("totalMessages", totalMessages);
-            
-            // 活跃用户统计
-            Long activeUsers = userRepository.countByRealmId(realmId);
-            data.put("activeUsers", activeUsers);
-            
-            // 新用户统计
-            Long newUsers = userRepository.countNewUsers(realmId, start, end);
-            data.put("newUsers", newUsers);
-            
-            // 消息发送者统计
-            List<Object[]> topSenders = messageRepository.findTopSenders(realmId, start, end, 10);
-            data.put("topSenders", topSenders);
-            
-            String dataJson = objectMapper.writeValueAsString(data);
-            
-            // 摘要
-            String summary = String.format("活跃用户: %d, 总消息: %d, 新用户: %d", 
-                    activeUsers, totalMessages, newUsers);
-            
-            AnalyticsReport report = AnalyticsReport.builder()
-                    .realmId(realmId)
-                    .reportType(AnalyticsReport.TYPE_USER_ACTIVITY)
-                    .period(period)
-                    .startTime(start)
-                    .endTime(end)
-                    .reportData(dataJson)
-                    .summary(summary)
-                    .creatorId(creatorId)
-                    .build();
-
-            report = reportRepository.save(report);
-
-            log.info("User activity report generated for realm {}", realmId);
-
-            return report;
-        } catch (Exception e) {
-            log.error("Failed to generate user activity report: {}", e.getMessage());
-            throw new RuntimeException("生成报告失败", e);
+    public void recordMetric(Long realmId, String dataType, Long metricValue, 
+                              String period, Map<String, Object> details) {
+        
+        AnalyticsData data = AnalyticsData.builder()
+                .realmId(realmId)
+                .dataType(dataType)
+                .metricValue(metricValue)
+                .period(period)
+                .timestamp(LocalDateTime.now())
+                .build();
+        
+        if (details != null) {
+            try {
+                data.setDetails(objectMapper.writeValueAsString(details));
+            } catch (Exception e) {
+                log.warn("Failed to serialize details: {}", e.getMessage());
+            }
         }
+        
+        analyticsRepository.save(data);
+        log.info("记录统计数据: realmId={}, type={}, value={}", realmId, dataType, metricValue);
     }
-
+    
     /**
-     * 生成 Stream 使用统计报告
+     * 收集消息统计
      */
     @Transactional
-    public AnalyticsReport generateStreamUsageReport(Long realmId, Long creatorId,
-                                                      LocalDateTime start, LocalDateTime end,
-                                                      String period) {
-        try {
-            Map<String, Object> data = new HashMap<>();
-            
-            // Stream 统计
-            Long totalStreams = streamRepository.countByRealmId(realmId);
-            data.put("totalStreams", totalStreams);
-            
-            // 活跃 Stream
-            Long activeStreams = streamRepository.countActiveStreams(realmId);
-            data.put("activeStreams", activeStreams);
-            
-            // Stream 消息量统计
-            List<Object[]> topStreams = messageRepository.findTopStreams(realmId, start, end, 10);
-            data.put("topStreams", topStreams);
-            
-            String dataJson = objectMapper.writeValueAsString(data);
-            
-            String summary = String.format("总 Stream: %d, 活跃 Stream: %d", 
-                    totalStreams, activeStreams);
-            
-            AnalyticsReport report = AnalyticsReport.builder()
-                    .realmId(realmId)
-                    .reportType(AnalyticsReport.TYPE_STREAM_USAGE)
-                    .period(period)
-                    .startTime(start)
-                    .endTime(end)
-                    .reportData(dataJson)
-                    .summary(summary)
-                    .creatorId(creatorId)
-                    .build();
-
-            report = reportRepository.save(report);
-
-            log.info("Stream usage report generated for realm {}", realmId);
-
-            return report;
-        } catch (Exception e) {
-            log.error("Failed to generate stream usage report: {}", e.getMessage());
-            throw new RuntimeException("生成报告失败", e);
-        }
+    public AnalyticsDTO.MessageStats collectMessageStats(Long realmId) {
+        Long totalMessages = messageRepository.countByRealmId(realmId);
+        LocalDateTime since = LocalDateTime.now().minusDays(7);
+        
+        Map<String, Object> details = new HashMap<>();
+        details.put("total_messages", totalMessages);
+        details.put("period", "weekly");
+        
+        AnalyticsDTO.MessageStats stats = AnalyticsDTO.MessageStats.builder()
+                .realmId(realmId)
+                .totalMessages(totalMessages)
+                .period("weekly")
+                .details(details)
+                .build();
+        
+        // 记录统计数据
+        recordMetric(realmId, "message_count", totalMessages, "daily", details);
+        
+        return stats;
     }
-
+    
     /**
-     * 生成消息统计报告
+     * 收集用户活跃度
      */
     @Transactional
-    public AnalyticsReport generateMessageStatsReport(Long realmId, Long creatorId,
-                                                       LocalDateTime start, LocalDateTime end,
-                                                       String period) {
-        try {
-            Map<String, Object> data = new HashMap<>();
-            
-            // 消息统计
-            Long totalMessages = messageRepository.countByRealmIdAndTimeRange(realmId, start, end);
-            data.put("totalMessages", totalMessages);
-            
-            // 平均消息长度
-            Double avgLength = messageRepository.avgMessageLength(realmId, start, end);
-            data.put("avgMessageLength", avgLength);
-            
-            // 消息类型分布
-            Map<String, Long> typeDistribution = new HashMap<>();
-            typeDistribution.put("stream", messageRepository.countStreamMessages(realmId, start, end));
-            typeDistribution.put("private", messageRepository.countPrivateMessages(realmId, start, end));
-            data.put("typeDistribution", typeDistribution);
-            
-            // 小时分布
-            List<Object[]> hourlyDistribution = messageRepository.hourlyDistribution(realmId, start, end);
-            data.put("hourlyDistribution", hourlyDistribution);
-            
-            String dataJson = objectMapper.writeValueAsString(data);
-            
-            String summary = String.format("总消息: %d, 平均长度: %.2f", 
-                    totalMessages, avgLength);
-            
-            AnalyticsReport report = AnalyticsReport.builder()
-                    .realmId(realmId)
-                    .reportType(AnalyticsReport.TYPE_MESSAGE_STATS)
-                    .period(period)
-                    .startTime(start)
-                    .endTime(end)
-                    .reportData(dataJson)
-                    .summary(summary)
-                    .creatorId(creatorId)
-                    .build();
-
-            report = reportRepository.save(report);
-
-            log.info("Message stats report generated for realm {}", realmId);
-
-            return report;
-        } catch (Exception e) {
-            log.error("Failed to generate message stats report: {}", e.getMessage());
-            throw new RuntimeException("生成报告失败", e);
-        }
+    public AnalyticsDTO.UserActivityStats collectUserActivity(Long realmId) {
+        long activeUsers = userRepository.countByRealmId(realmId);
+        
+        Map<String, Object> details = new HashMap<>();
+        details.put("active_users", activeUsers);
+        
+        AnalyticsDTO.UserActivityStats stats = AnalyticsDTO.UserActivityStats.builder()
+                .realmId(realmId)
+                .activeUsers(activeUsers)
+                .period("daily")
+                .details(details)
+                .build();
+        
+        recordMetric(realmId, "user_activity", activeUsers, "daily", details);
+        
+        return stats;
     }
-
+    
     /**
-     * 生成表情统计报告
+     * 收集Stream使用统计
      */
     @Transactional
-    public AnalyticsReport generateReactionStatsReport(Long realmId, Long creatorId,
-                                                        LocalDateTime start, LocalDateTime end,
-                                                        String period) {
-        try {
-            Map<String, Object> data = new HashMap<>();
-            
-            // 表情总数
-            Long totalReactions = reactionRepository.countByRealmId(realmId);
-            data.put("totalReactions", totalReactions);
-            
-            // 热门表情
-            List<Object[]> topReactions = reactionRepository.findTopReactions(realmId, start, end, 10);
-            data.put("topReactions", topReactions);
-            
-            String dataJson = objectMapper.writeValueAsString(data);
-            
-            String summary = String.format("总表情: %d", totalReactions);
-            
-            AnalyticsReport report = AnalyticsReport.builder()
-                    .realmId(realmId)
-                    .reportType(AnalyticsReport.TYPE_REACTION_STATS)
-                    .period(period)
-                    .startTime(start)
-                    .endTime(end)
-                    .reportData(dataJson)
-                    .summary(summary)
-                    .creatorId(creatorId)
-                    .build();
-
-            report = reportRepository.save(report);
-
-            log.info("Reaction stats report generated for realm {}", realmId);
-
-            return report;
-        } catch (Exception e) {
-            log.error("Failed to generate reaction stats report: {}", e.getMessage());
-            throw new RuntimeException("生成报告失败", e);
-        }
+    public AnalyticsDTO.StreamUsageStats collectStreamUsage(Long realmId) {
+        long streamCount = streamRepository.count();
+        
+        Map<String, Object> details = new HashMap<>();
+        details.put("stream_count", streamCount);
+        
+        AnalyticsDTO.StreamUsageStats stats = AnalyticsDTO.StreamUsageStats.builder()
+                .realmId(realmId)
+                .streamCount(streamCount)
+                .period("monthly")
+                .details(details)
+                .build();
+        
+        recordMetric(realmId, "stream_usage", streamCount, "monthly", details);
+        
+        return stats;
     }
-
+    
     /**
-     * 获取报告
+     * 获取历史数据
      */
-    public AnalyticsReport getReport(Long reportId) {
-        return reportRepository.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("报告不存在"));
+    public List<AnalyticsDTO.DataPoint> getHistoricalData(Long realmId, String dataType, 
+                                                            LocalDateTime start, LocalDateTime end) {
+        
+        return analyticsRepository.findByTypeAndTimeRange(realmId, dataType, start, end)
+                .stream()
+                .map(this::toDataPoint)
+                .collect(Collectors.toList());
     }
-
+    
     /**
-     * 获取 Realm 报告列表
+     * 获取最新数据
      */
-    public List<AnalyticsReport> getRealmReports(Long realmId) {
-        return reportRepository.findByRealmId(realmId);
+    public Optional<AnalyticsDTO.DataPoint> getLatestData(Long realmId, String dataType) {
+        return analyticsRepository.findFirstByRealmIdAndDataTypeOrderByTimestampDesc(realmId, dataType)
+                .map(this::toDataPoint);
     }
-
+    
     /**
-     * 获取特定类型报告
+     * 获取数据汇总
      */
-    public List<AnalyticsReport> getReportsByType(Long realmId, String reportType) {
-        return reportRepository.findByRealmIdAndType(realmId, reportType);
-    }
-
-    /**
-     * 获取最新报告
-     */
-    public Optional<AnalyticsReport> getLatestReport(Long realmId, String reportType, String period) {
-        return reportRepository.findLatestReport(realmId, reportType, period);
-    }
-
-    /**
-     * 获取时间范围报告
-     */
-    public List<AnalyticsReport> getReportsByTimeRange(Long realmId, LocalDateTime start, LocalDateTime end) {
-        return reportRepository.findByTimeRange(realmId, start, end);
-    }
-
-    /**
-     * 删除旧报告
-     */
-    @Transactional
-    public void deleteOldReports(Long realmId, LocalDateTime before) {
-        reportRepository.deleteOldReports(realmId, before);
-        log.info("Old reports deleted for realm {}", realmId);
-    }
-
-    /**
-     * 转换为 DTO
-     */
-    public AnalyticsDTO.ReportResponse toResponse(AnalyticsReport report) {
-        return AnalyticsDTO.ReportResponse.builder()
-                .id(report.getId())
-                .realmId(report.getRealmId())
-                .reportType(report.getReportType())
-                .period(report.getPeriod())
-                .startTime(report.getStartTime() != null ? report.getStartTime().toString() : null)
-                .endTime(report.getEndTime() != null ? report.getEndTime().toString() : null)
-                .reportData(report.getReportData())
-                .summary(report.getSummary())
-                .creatorId(report.getCreatorId())
-                .reportTime(report.getReportTime().toString())
+    public AnalyticsDTO.Summary getSummary(Long realmId, String dataType, LocalDateTime since) {
+        Long total = analyticsRepository.sumMetricValueByTypeSince(realmId, dataType, since);
+        
+        return AnalyticsDTO.Summary.builder()
+                .realmId(realmId)
+                .dataType(dataType)
+                .totalValue(total != null ? total : 0L)
+                .since(since)
                 .build();
     }
-
+    
     /**
-     * 快速统计
+     * 获取平均值
      */
-    public AnalyticsDTO.QuickStats getQuickStats(Long realmId) {
-        Long totalMessages = messageRepository.countByRealmId(realmId);
-        Long totalUsers = userRepository.countByRealmId(realmId);
-        Long totalStreams = streamRepository.countByRealmId(realmId);
-        Long totalReactions = reactionRepository.countByRealmId(realmId);
-
-        return AnalyticsDTO.QuickStats.builder()
-                .totalMessages(totalMessages)
-                .totalUsers(totalUsers)
-                .totalStreams(totalStreams)
-                .totalReactions(totalReactions)
+    public Double getAverage(Long realmId, String dataType, LocalDateTime start, LocalDateTime end) {
+        return analyticsRepository.avgMetricValueByTypeAndTimeRange(realmId, dataType, start, end);
+    }
+    
+    /**
+     * 生成完整报告
+     */
+    public AnalyticsDTO.Report generateReport(Long realmId) {
+        AnalyticsDTO.MessageStats messageStats = collectMessageStats(realmId);
+        AnalyticsDTO.UserActivityStats userStats = collectUserActivity(realmId);
+        AnalyticsDTO.StreamUsageStats streamStats = collectStreamUsage(realmId);
+        
+        return AnalyticsDTO.Report.builder()
+                .realmId(realmId)
+                .messageStats(messageStats)
+                .userActivityStats(userStats)
+                .streamUsageStats(streamStats)
+                .generatedAt(LocalDateTime.now())
+                .build();
+    }
+    
+    /**
+     * 获取所有数据类型
+     */
+    public List<String> getAvailableDataTypes(Long realmId) {
+        return analyticsRepository.findByRealmIdOrderByTimestampDesc(realmId)
+                .stream()
+                .map(AnalyticsData::getDataType)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+    
+    private AnalyticsDTO.DataPoint toDataPoint(AnalyticsData data) {
+        Map<String, Object> details = null;
+        if (data.getDetails() != null) {
+            try {
+                details = objectMapper.readValue(data.getDetails(), Map.class);
+            } catch (Exception e) {
+                log.warn("Failed to parse details: {}", e.getMessage());
+            }
+        }
+        
+        return AnalyticsDTO.DataPoint.builder()
+                .id(data.getId())
+                .realmId(data.getRealmId())
+                .dataType(data.getDataType())
+                .period(data.getPeriod())
+                .timestamp(data.getTimestamp())
+                .metricValue(data.getMetricValue())
+                .details(details)
                 .build();
     }
 }

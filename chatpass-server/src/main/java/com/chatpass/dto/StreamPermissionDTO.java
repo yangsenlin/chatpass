@@ -1,61 +1,41 @@
 package com.chatpass.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 /**
- * StreamPermissionDTO
- * 
- * 频道权限数据传输对象
+ * Stream权限DTO
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class StreamPermissionDTO {
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class UpdateRequest {
-        private Boolean inviteOnly;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class PermissionResponse {
-        private Long streamId;
-        private String streamName;
-        private Boolean inviteOnly;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class MemberInfo {
-        private Long userId;
-        private String userName;
-        private String email;
-        private Integer role;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class AddMemberRequest {
-        private Long userId;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class BatchAddRequest {
-        private List<Long> userIds;
-    }
+    
+    private Long id;
+    private Long streamId;
+    private Long userId;
+    private String permissionType;
+    private Boolean canRead;
+    private Boolean canWrite;
+    private Boolean canModifyTopic;
+    private Boolean canManageMembers;
+    private Boolean canDeleteMessages;
+    private Long realmId;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    
+    /**
+     * 用户名称（可选）
+     */
+    private String userName;
+    
+    /**
+     * Stream名称（可选）
+     */
+    private String streamName;
 }

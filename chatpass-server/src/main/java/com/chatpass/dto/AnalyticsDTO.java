@@ -1,14 +1,15 @@
 package com.chatpass.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
- * AnalyticsDTO
+ * 数据分析DTO
  */
 public class AnalyticsDTO {
 
@@ -16,47 +17,69 @@ public class AnalyticsDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class ReportResponse {
+    public static class DataPoint {
         private Long id;
         private Long realmId;
-        private String reportType;
+        private String dataType;
         private String period;
-        private String startTime;
-        private String endTime;
-        private String reportData;
-        private String summary;
-        private Long creatorId;
-        private String reportTime;
+        private LocalDateTime timestamp;
+        private Long metricValue;
+        private Map<String, Object> details;
     }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class GenerateReportRequest {
-        private String reportType;
-        private String period;
-        private String startTime;
-        private String endTime;
+    public static class Summary {
+        private Long realmId;
+        private String dataType;
+        private Long totalValue;
+        private LocalDateTime since;
     }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class QuickStats {
+    public static class MessageStats {
+        private Long realmId;
         private Long totalMessages;
-        private Long totalUsers;
-        private Long totalStreams;
-        private Long totalReactions;
+        private String period;
+        private Map<String, Object> details;
     }
-
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class ReportListResponse {
-        private List<ReportResponse> reports;
-        private Long total;
+    public static class UserActivityStats {
+        private Long realmId;
+        private Long activeUsers;
+        private String period;
+        private Map<String, Object> details;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class StreamUsageStats {
+        private Long realmId;
+        private Long streamCount;
+        private String period;
+        private Map<String, Object> details;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class Report {
+        private Long realmId;
+        private MessageStats messageStats;
+        private UserActivityStats userActivityStats;
+        private StreamUsageStats streamUsageStats;
+        private LocalDateTime generatedAt;
     }
 }
