@@ -1,142 +1,100 @@
 package com.chatpass.controller.api.v1;
 
-import com.chatpass.dto.ApiResponse;
-import com.chatpass.dto.TypingDTO;
-import com.chatpass.entity.TypingStatus;
-import com.chatpass.security.SecurityUtil;
+import com.chatpass.dto.TypingStatusDTO;
 import com.chatpass.service.TypingStatusService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
- * TypingStatus 控制器
- * 
- * 输入提示状态 API
+ * 输入状态控制器
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@Tag(name = "Typing Status", description = "输入提示 API")
+@Slf4j
 public class TypingStatusController {
-
+    
     private final TypingStatusService typingService;
-    private final SecurityUtil securityUtil;
-
-    @PostMapping("/typing/direct/{recipientId}/start")
-    @Operation(summary = "开始输入（私信）")
-    public ResponseEntity<ApiResponse<TypingDTO.TypingResponse>> startTypingDirect(
-            @PathVariable Long recipientId) {
-        Long userId = securityUtil.getCurrentUserId();
+    
+    /**
+     * 开始输入状态
+     */
+    @PostMapping("/users/{userId}/typing")
+    public ResponseEntity<TypingStatusDTO> startTyping(
+            @PathVariable Long userId,
+            @RequestParam(required = false) Long streamId,
+            @RequestParam(required = false) String topic,
+            @RequestParam(required = false) String toUserIds,
+            @RequestParam(required = false) Long realmId) {
         
-        TypingStatus status = typingService.startTypingDirect(userId, recipientId);
-        
-        return ResponseEntity.ok(ApiResponse.success(typingService.toResponse(status)));
+        TypingStatusDTO typing = typingService.startTyping(userId, streamId, topic, toUserIds, realmId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(typing);
     }
-
-    @PostMapping("/typing/direct/{recipientId}/stop")
-    @Operation(summary = "停止输入（私信）")
-    public ResponseEntity<ApiResponse<Void>> stopTypingDirect(
-            @PathVariable Long recipientId) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        typingService.stopTypingDirect(userId, recipientId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-    @PostMapping("/typing/stream/{streamId}/start")
-    @Operation(summary = "开始输入（频道）")
-    public ResponseEntity<ApiResponse<TypingDTO.TypingResponse>> startTypingStream(
-            @PathVariable Long streamId,
-            @RequestBody TypingDTO.StreamTypingRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        TypingStatus status = typingService.startTypingStream(userId, streamId, request.getTopic());
-        
-        return ResponseEntity.ok(ApiResponse.success(typingService.toResponse(status)));
-    }
-
-    @PostMapping("/typing/stream/{streamId}/stop")
-    @Operation(summary = "停止输入（频道）")
-    public ResponseEntity<ApiResponse<Void>> stopTypingStream(
-            @PathVariable Long streamId,
-            @RequestBody TypingDTO.StreamTypingRequest request) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        typingService.stopTypingStream(userId, streamId, request.getTopic());
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
-    }
-
-    @PostMapping("/typing/stop")
-    @Operation(summary = "停止所有输入")
-    public ResponseEntity<ApiResponse<Void>> stopAllTyping() {
-        Long userId = securityUtil.getCurrentUserId();
-        
+    
+    /**
+     * 停止输入状态
+     */
+    @DeleteMapping("/users/{userId}/typing")
+    public ResponseEntity<Void> stopTyping(@PathVariable Long userId) {
         typingService.stopTyping(userId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.noContent().build();
     }
-
-    @PostMapping("/typing/direct/{recipientId}/keep")
-    @Operation(summary = "保持输入状态")
-    public ResponseEntity<ApiResponse<Void>> keepTyping(
-            @PathVariable Long recipientId) {
-        Long userId = securityUtil.getCurrentUserId();
-        
-        typingService.keepTyping(userId, recipientId);
-        
-        return ResponseEntity.ok(ApiResponse.success(null));
+    
+    /**
+     * 获取用户的输入状态
+     */
+    @GetMapping("/users/{userId}/typing")
+    public ResponseEntity<List<TypingStatusDTO>> getUserTypingStatus(@PathVariable Long userId) {
+        List<TypingStatusDTO> typing = typingService.getUserTypingStatus(userId);
+        return ResponseEntity.ok(typing);
     }
-
-    @GetMapping("/typing/direct/{recipientId}")
-    @Operation(summary = "获取正在输入的用户（私信）")
-    public ResponseEntity<ApiResponse<List<TypingDTO.TypingResponse>>> getTypingUsersDirect(
-            @PathVariable Long recipientId) {
-        List<TypingStatus> typingUsers = typingService.getTypingUsersDirect(recipientId);
-        
-        List<TypingDTO.TypingResponse> response = typingUsers.stream()
-                .map(typingService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/typing/stream/{streamId}")
-    @Operation(summary = "获取正在输入的用户（频道）")
-    public ResponseEntity<ApiResponse<List<TypingDTO.TypingResponse>>> getTypingUsersStream(
+    
+    /**
+     * 获取话题正在输入的用户
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/typing")
+    public ResponseEntity<List<TypingStatusDTO>> getTypingUsers(
             @PathVariable Long streamId,
-            @RequestParam(required = false) String topic) {
-        List<TypingStatus> typingUsers = typingService.getTypingUsersStream(streamId, topic);
+            @PathVariable String topic) {
         
-        List<TypingDTO.TypingResponse> response = typingUsers.stream()
-                .map(typingService::toResponse)
-                .collect(Collectors.toList());
-        
-        return ResponseEntity.ok(ApiResponse.success(response));
+        List<TypingStatusDTO> typing = typingService.getTypingUsers(streamId, topic);
+        return ResponseEntity.ok(typing);
     }
-
-    @GetMapping("/typing/direct/{recipientId}/count")
-    @Operation(summary = "统计正在输入的用户数量")
-    public ResponseEntity<ApiResponse<Long>> countTypingUsers(
-            @PathVariable Long recipientId) {
-        Long count = typingService.countTypingUsers(recipientId);
-        
-        return ResponseEntity.ok(ApiResponse.success(count));
+    
+    /**
+     * 获取频道正在输入的用户
+     */
+    @GetMapping("/streams/{streamId}/typing")
+    public ResponseEntity<List<TypingStatusDTO>> getStreamTypingUsers(@PathVariable Long streamId) {
+        List<TypingStatusDTO> typing = typingService.getStreamTypingUsers(streamId);
+        return ResponseEntity.ok(typing);
     }
-
-    @GetMapping("/typing/direct/{recipientId}/summary")
-    @Operation(summary = "获取输入状态摘要")
-    public ResponseEntity<ApiResponse<TypingDTO.TypingSummary>> getTypingSummary(
-            @PathVariable Long recipientId) {
-        TypingDTO.TypingSummary summary = typingService.getTypingSummary(recipientId);
+    
+    /**
+     * 统计正在输入的用户数
+     */
+    @GetMapping("/streams/{streamId}/topics/{topic}/typing/count")
+    public ResponseEntity<Long> countTypingUsers(
+            @PathVariable Long streamId,
+            @PathVariable String topic) {
         
-        return ResponseEntity.ok(ApiResponse.success(summary));
+        long count = typingService.countTypingUsers(streamId, topic);
+        return ResponseEntity.ok(count);
+    }
+    
+    /**
+     * 清理过期输入状态
+     */
+    @PostMapping("/typing/cleanup")
+    public ResponseEntity<Integer> cleanupExpiredTyping(
+            @RequestParam(defaultValue = "30") int secondsThreshold) {
+        
+        typingService.cleanupExpiredTyping(secondsThreshold);
+        return ResponseEntity.ok(0);
     }
 }

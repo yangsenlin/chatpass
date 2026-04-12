@@ -8,44 +8,32 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 /**
- * 输入状态实体
- * 用于管理用户的正在输入状态
+ * 用户静音实体
+ * 用于管理用户对其他用户的静音设置
  */
 @Entity
-@Table(name = "typing_statuses")
+@Table(name = "user_mutes")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TypingStatus {
+public class UserMute {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
     /**
-     * 用户ID
+     * 用户ID（静音发起者）
      */
     @Column(name = "user_id", nullable = false)
     private Long userId;
     
     /**
-     * Stream ID（正在输入的频道）
+     * 被静音的用户ID
      */
-    @Column(name = "stream_id")
-    private Long streamId;
-    
-    /**
-     * 话题（正在输入的话题）
-     */
-    @Column(name = "topic", length = 100)
-    private String topic;
-    
-    /**
-     * 目标用户ID列表（私信输入，JSON格式）
-     */
-    @Column(name = "to_user_ids", length = 500)
-    private String toUserIds;
+    @Column(name = "muted_user_id", nullable = false)
+    private Long mutedUserId;
     
     /**
      * 所属组织ID
@@ -54,10 +42,10 @@ public class TypingStatus {
     private Long realmId;
     
     /**
-     * 开始输入时间
+     * 创建时间
      */
-    @Column(name = "started_at", nullable = false)
-    private LocalDateTime startedAt;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
     
     /**
      * 更新时间
@@ -67,7 +55,7 @@ public class TypingStatus {
     
     @PrePersist
     protected void onCreate() {
-        startedAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
     
