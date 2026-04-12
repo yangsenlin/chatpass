@@ -51,6 +51,7 @@ public class MessageFlag {
      * 标记类型
      */
     @Column(name = "flag_type", length = 20)
+    @Builder.Default
     private String flagType = "star"; // star, bookmark, important
     
     @PrePersist
