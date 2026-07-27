@@ -3,6 +3,8 @@ package com.chatpass.platform.workflow.engine;
 import com.chatpass.platform.message.ChannelType;
 import com.chatpass.platform.message.UnifiedMessage;
 import com.chatpass.platform.workflow.WorkflowType;
+import com.chatpass.platform.workflow.mojarvis.ExecutionContextWorkflowListener;
+import com.chatpass.platform.workflow.mojarvis.WorkflowParser;
 import com.chatpass.platform.workflow.engine.node.ActionNodeExecutor;
 import com.chatpass.platform.workflow.engine.node.ConditionNodeExecutor;
 import com.chatpass.platform.workflow.engine.node.EndNodeExecutor;
@@ -35,6 +37,7 @@ class WorkflowEngineTest {
         assertThat(result.getStatus()).isEqualTo(WorkflowStatus.FINISHED);
         assertThat(result.getVariables()).containsEntry("reply.outputText", "workflow ok");
         assertThat(result.getVariables()).containsEntry("end.ended", true);
+        assertThat(result.getVariables()).containsKey(ExecutionContextWorkflowListener.EVENTS_VARIABLE);
     }
 
     @Test
@@ -52,6 +55,7 @@ class WorkflowEngineTest {
         assertThat(resumed.getStatus()).isEqualTo(WorkflowStatus.FINISHED);
         assertThat(resumed.getVariables()).containsEntry("approved", true);
         assertThat(resumed.getVariables()).containsEntry("end.ended", true);
+        assertThat(resumed.getVariables()).containsKey(ExecutionContextWorkflowListener.EVENTS_VARIABLE);
     }
 
     private WorkflowEngine engine() {
@@ -67,11 +71,12 @@ class WorkflowEngineTest {
             new WaitNodeExecutor(),
             new EndNodeExecutor()
         ));
+        WorkflowConditionEvaluator conditionEvaluator = new WorkflowConditionEvaluator();
         return new WorkflowEngine(
-            registry,
-            new WorkflowConditionEvaluator(),
             new InMemoryWorkflowExecutionStore(),
-            new WorkflowValidator()
+            new WorkflowValidator(),
+            new WorkflowParser(registry, conditionEvaluator),
+            new ExecutionContextWorkflowListener()
         );
     }
 

@@ -1,3 +1,4 @@
+com\chatpass\platform\workflow\mojarvis\WorkflowParser$1.class
 com\chatpass\platform\buffer\InMemoryMessageBuffer.class
 com\chatpass\platform\message\MessageProcessingResult.class
 com\chatpass\platform\workflow\engine\NodeExecutionResult.class
@@ -9,6 +10,7 @@ META-INF\spring-configuration-metadata.json
 com\chatpass\platform\output\InMemoryOutputChannelAdapter.class
 com\chatpass\platform\output\CompositeOutputChannelAdapter.class
 com\chatpass\platform\workflow\engine\NodeTriggerStrategy.class
+com\chatpass\platform\protection\RateLimitExceededException.class
 com\chatpass\platform\stream\StreamEventType.class
 com\chatpass\platform\history\HistoryElasticsearchProperties.class
 com\chatpass\platform\message\MessageDirection.class
@@ -30,13 +32,13 @@ com\chatpass\platform\workflow\TransferToAgentAction.class
 com\chatpass\platform\mqtt\control\MqttNodeHeartbeat.class
 com\chatpass\platform\mqtt\control\MqttRouteTable.class
 com\chatpass\platform\stream\StreamControlCommand.class
-com\chatpass\platform\workflow\engine\WorkflowEngine$1.class
 com\chatpass\platform\routing\MessageRouter.class
 com\chatpass\platform\mqtt\control\MqttCluster.class
 com\chatpass\platform\config\DifyProperties.class
 com\chatpass\platform\routing\repository\TriggerRuleRepository.class
 com\chatpass\platform\tenant\TenantService.class
 com\chatpass\platform\config\ChatPassRoutingProperties.class
+com\chatpass\platform\mqtt\control\MqttTenantMigrationPlan.class
 com\chatpass\platform\mqtt\MqttRetainedMessage.class
 com\chatpass\platform\api\ApiExceptionHandler.class
 com\chatpass\platform\mqtt\control\MqttClusterControlService.class
@@ -51,11 +53,12 @@ com\chatpass\platform\mqtt\MqttBrokerServer.class
 com\chatpass\platform\workflow\engine\node\EndNodeExecutor.class
 com\chatpass\platform\workflow\engine\WorkflowDefinition.class
 com\chatpass\platform\mqtt\control\LocalMqttClusterRegistrar.class
-com\chatpass\platform\workflow\engine\WorkflowEngine$WorkflowGraph.class
 com\chatpass\platform\buffer\MessageBuffer.class
 com\chatpass\platform\mqtt\MqttBrokerProperties.class
 com\chatpass\platform\mqtt\control\MqttClusterStatus.class
+com\chatpass\platform\workflow\mojarvis\Workflow$1.class
 com\chatpass\platform\stream\RedisStreamStore.class
+com\chatpass\platform\protection\MessageTooLargeException.class
 com\chatpass\platform\workflow\AutoReplyAction.class
 com\chatpass\platform\tenant\Tenant.class
 com\chatpass\platform\workflow\engine\WorkflowExecutionRequest.class
@@ -75,11 +78,13 @@ com\chatpass\platform\routing\WorkflowTarget.class
 com\chatpass\platform\api\TenantMqttEndpointController.class
 com\chatpass\platform\workflow\engine\NodeType.class
 com\chatpass\platform\output\MqttOutboundChannelSender.class
+com\chatpass\platform\protection\ChatPassProtectionProperties.class
 com\chatpass\platform\mqtt\cluster\MqttClusterMessage.class
 com\chatpass\platform\routing\TriggerMatcher$1.class
 com\chatpass\platform\mqtt\cluster\MqttClusterBus.class
 com\chatpass\platform\api\TenantController.class
 com\chatpass\platform\channel\ChannelMessageAdapter.class
+com\chatpass\platform\protection\ChatPassMetrics.class
 com\chatpass\platform\message\UnifiedMessage.class
 com\chatpass\platform\message\MessageIngressService.class
 com\chatpass\platform\security\IngressSecurityVerifier.class
@@ -89,6 +94,7 @@ com\chatpass\platform\api\WorkflowController.class
 com\chatpass\platform\api\MessageIngressController.class
 com\chatpass\platform\workflow\engine\InMemoryWorkflowRepository.class
 com\chatpass\platform\mqtt\control\MqttEndpointResponse.class
+com\chatpass\platform\protection\RedisRateLimiter.class
 com\chatpass\platform\workflow\engine\node\StartNodeExecutor.class
 com\chatpass\platform\workflow\engine\WorkflowExecutionResult.class
 com\chatpass\platform\workflow\WorkflowExecutor.class
@@ -107,6 +113,7 @@ com\chatpass\platform\mqtt\offline\MqttOfflineMessage.class
 com\chatpass\platform\workflow\DifyStreamChatAction$1.class
 com\chatpass\platform\config\DifyConfiguration.class
 com\chatpass\platform\channel\SocialChannelMessageAdapter.class
+com\chatpass\platform\protection\MessageSizeValidator.class
 com\chatpass\platform\workflow\engine\WorkflowConditionEvaluator$1.class
 com\chatpass\platform\workflow\engine\node\HttpNodeExecutor.class
 com\chatpass\platform\api\MqttControlPlaneController.class
@@ -118,6 +125,7 @@ com\chatpass\platform\workflow\engine\WorkflowExecutionStore.class
 com\chatpass\platform\api\OutboxController.class
 com\chatpass\platform\reliability\MessageReliabilityStore.class
 com\chatpass\platform\mqtt\MqttBrokerServer$1.class
+com\chatpass\platform\mqtt\control\MqttTenantMigrationStatus.class
 com\chatpass\platform\mqtt\control\MqttNodeHeartbeatService.class
 com\chatpass\platform\api\ChannelWebhookController.class
 com\chatpass\platform\output\OutputChannelAdapter.class
@@ -125,6 +133,7 @@ com\chatpass\platform\mqtt\MqttRetainedMessageStore.class
 com\chatpass\platform\workflow\WorkflowType.class
 com\chatpass\platform\mqtt\websocket\WebSocketMqttFrameCodec.class
 com\chatpass\platform\workflow\engine\InMemoryWorkflowExecutionStore.class
+com\chatpass\platform\mqtt\control\MqttTenantMigrationRequest.class
 com\chatpass\platform\routing\RuleCondition.class
 com\chatpass\platform\tenant\ChannelIntegrationService.class
 com\chatpass\platform\buffer\BufferedMessage.class
@@ -140,6 +149,7 @@ com\chatpass\platform\workflow\engine\WorkflowValidator.class
 com\chatpass\platform\routing\MatchOperator.class
 com\chatpass\platform\mqtt\MqttBrokerService.class
 com\chatpass\platform\routing\ConditionGroupOperator.class
+com\chatpass\platform\mqtt\control\MqttTenantMigrationService.class
 com\chatpass\platform\mqtt\MqttIngressBridge.class
 com\chatpass\platform\workflow\engine\WorkflowEdgeDefinition.class
 com\chatpass\platform\workflow\engine\WorkflowValidationException.class

@@ -1,2 +1,7 @@
+com\chatpass\platform\workflow\mojarvis\MoJarvisWorkflowAdapterTest.class
+com\chatpass\platform\mqtt\control\MqttRouteTableTest.class
+com\chatpass\platform\mqtt\control\MqttTenantMigrationServiceTest.class
 com\chatpass\platform\routing\TriggerMatcherTest.class
+com\chatpass\platform\protection\RedisRateLimiterTest.class
+com\chatpass\platform\protection\MessageSizeValidatorTest.class
 com\chatpass\platform\workflow\engine\WorkflowEngineTest.class
