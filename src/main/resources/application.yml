@@ -1,0 +1,54 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: chatpass-platform
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+chatpass:
+  mqtt:
+    enabled: true
+    node-id: chatpass-node-1
+    host: 0.0.0.0
+    port: 1883
+    websocket-enabled: true
+    websocket-port: 8083
+    websocket-path: /mqtt
+    cluster-enabled: true
+    offline-enabled: true
+    bridge-ingress: true
+  dify:
+    enabled: false
+    base-url: https://api.dify.ai/v1
+    api-key:
+  routing:
+    rules:
+      - id: dify-keyword-demo
+        name: Dify keyword demo
+        enabled: true
+        priority: 100
+        workflow:
+          type: DIFY_CHAT
+          target: default-dify-chat
+          parameters:
+            responseChannel: same-channel
+        conditions:
+          - field: content.text
+            operator: CONTAINS
+            value: ai
+      - id: fallback-auto-reply
+        name: Fallback auto reply
+        enabled: true
+        priority: 0
+        workflow:
+          type: AUTO_REPLY
+          target: fallback
+          parameters:
+            text: Message accepted by ChatPass.
+        conditions: []

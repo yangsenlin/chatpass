@@ -1,0 +1,92 @@
+{
+  "groups": [
+    {
+      "name": "chatpass.dify",
+      "type": "com.chatpass.platform.config.DifyProperties",
+      "sourceType": "com.chatpass.platform.config.DifyProperties"
+    },
+    {
+      "name": "chatpass.mqtt",
+      "type": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.routing",
+      "type": "com.chatpass.platform.config.ChatPassRoutingProperties",
+      "sourceType": "com.chatpass.platform.config.ChatPassRoutingProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "chatpass.dify.api-key",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.config.DifyProperties"
+    },
+    {
+      "name": "chatpass.dify.base-url",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.config.DifyProperties"
+    },
+    {
+      "name": "chatpass.dify.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.config.DifyProperties"
+    },
+    {
+      "name": "chatpass.mqtt.bridge-ingress",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.cluster-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.host",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.node-id",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.offline-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.websocket-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.websocket-path",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.mqtt.websocket-port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
+    },
+    {
+      "name": "chatpass.routing.rules",
+      "type": "java.util.List<com.chatpass.platform.routing.TriggerRule>",
+      "sourceType": "com.chatpass.platform.config.ChatPassRoutingProperties"
+    }
+  ],
+  "hints": []
+}
