@@ -14,6 +14,7 @@ ChatPass V1 原型实现了消息标准化、触发规则匹配、动作执行�
 - 工作流动作执行：已支持 `AUTO_REPLY`、`DIFY_CHAT`、`TRANSFER_TO_AGENT` 和 `NOOP`。
 - DAG 工作流引擎：支持 Start/End/Action/Condition/Wait/Loop/HTTP 节点、边条件、ANY/ALL/FIRST 合流、异步节点提交、节点输出变量、挂起状态和恢复执行。
 - MQTT broker：基于 Netty MQTT codec 实现 TCP/WebSocket MQTT 接入、CONNECT、SUBSCRIBE、UNSUBSCRIBE、PUBLISH、PING、DISCONNECT、QoS1 ACK、QoS2 基础握手、retain 消息、订阅分发、离线消息和集群总线抽象；订阅、retain、离线消息已落 Redis。
+- MQTT 流式消息：支持面向大模型输出的 `START/CHUNK/DONE/ERROR/CANCELLED/HEARTBEAT` 事件、Redis chunk 存储、CANCEL/RESUME 控制和 Dify 流式动作。
 - Dify 对接：复用 `dify-api-java-sdk`，配置 `chatpass.dify.enabled=true` 后可调用 Dify Chat App。
 - 输出适配层：组合输出到内存 outbox、outbox 投递表和 MQTT 出站 sender，可通过 `GET /api/outbox` 查看处理结果。
 
@@ -122,6 +123,49 @@ chatpass:
 
 客户端发布的 MQTT PUBLISH 会被转换为 `UnifiedMessage` 并进入 `MessageIngressService`。topic 会写入 `attributes.mqtt.topic`，payload 默认按 UTF-8 文本处理。
 WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqtt`。`cleanSession=false` 的客户端断线后会保留订阅，QoS1/QoS2 消息会进入离线消息存储，并在下次 CONNECT 后回放。
+
+## MQTT 流式消息
+
+流式 topic：
+
+```text
+/chatpass/{tenantId}/{appId}/conversation/{conversationId}/stream/{streamId}/{event}
+```
+
+事件类型：
+
+- `start`
+- `chunk`
+- `done`
+- `error`
+- `cancelled`
+- `heartbeat`
+
+控制 topic 以 `/control` 结尾，payload 示例：
+
+```json
+{
+  "type": "RESUME",
+  "streamId": "stream-id",
+  "lastSequence": 12
+}
+```
+
+```json
+{
+  "type": "CANCEL",
+  "streamId": "stream-id",
+  "reason": "user_stop"
+}
+```
+
+流状态查询：
+
+- `GET /api/streams/{streamId}`
+- `GET /api/streams/{streamId}/content`
+- `GET /api/streams/{streamId}/chunks?afterSequence=12`
+
+工作流动作类型 `DIFY_STREAM_CHAT` 会将 Dify SSE 输出转换为 MQTT chunk，并在 Redis 中聚合完整内容。
 
 ## 设计映射
 

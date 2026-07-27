@@ -4,6 +4,7 @@ import com.chatpass.platform.message.ChannelType;
 import com.chatpass.platform.message.MessageIngressService;
 import com.chatpass.platform.message.UnifiedMessage;
 import com.chatpass.platform.mqtt.session.MqttClientSession;
+import com.chatpass.platform.stream.MqttStreamControlService;
 import io.netty.handler.codec.mqtt.MqttQoS;
 import org.springframework.stereotype.Component;
 
@@ -18,14 +19,23 @@ public class MqttIngressBridge {
 
     private final MqttBrokerProperties properties;
     private final MessageIngressService messageIngressService;
+    private final MqttStreamControlService streamControlService;
 
-    public MqttIngressBridge(MqttBrokerProperties properties, MessageIngressService messageIngressService) {
+    public MqttIngressBridge(
+        MqttBrokerProperties properties,
+        MessageIngressService messageIngressService,
+        MqttStreamControlService streamControlService
+    ) {
         this.properties = properties;
         this.messageIngressService = messageIngressService;
+        this.streamControlService = streamControlService;
     }
 
     public void bridge(MqttClientSession session, String topic, byte[] payload, MqttQoS qoS, boolean retain) {
         if (!properties.isBridgeIngress()) {
+            return;
+        }
+        if (streamControlService.handle(topic, payload)) {
             return;
         }
         UnifiedMessage message = new UnifiedMessage();

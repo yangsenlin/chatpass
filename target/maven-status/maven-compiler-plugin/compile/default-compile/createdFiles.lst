@@ -2,4 +2,5 @@ com\chatpass\platform\routing\ConditionMatcher$1.class
 com\chatpass\platform\mqtt\handler\MqttBrokerChannelHandler$1.class
 com\chatpass\platform\workflow\engine\WorkflowEngine$1.class
 com\chatpass\platform\routing\TriggerMatcher$1.class
+com\chatpass\platform\workflow\DifyStreamChatAction$1.class
 com\chatpass\platform\workflow\engine\WorkflowConditionEvaluator$1.class

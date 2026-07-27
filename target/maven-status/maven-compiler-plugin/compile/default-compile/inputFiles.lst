@@ -2,6 +2,8 @@ D:\chatpass\src\main\java\com\chatpass\platform\buffer\BufferedMessage.java
 D:\chatpass\src\main\java\com\chatpass\platform\config\DifyConfiguration.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\ActionExecutionRequest.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\repository\TriggerRuleRepository.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\RedisStreamStore.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\MqttStreamPublisher.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\EndNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\RedisWorkflowRepository.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\WorkflowNodeExecutorRegistry.java
@@ -17,6 +19,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\routing\RouteDecision.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowStatus.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\websocket\WebSocketMqttFrameCodec.java
 D:\chatpass\src\main\java\com\chatpass\platform\reliability\MessageReliabilityStore.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\StreamMessage.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\MessageIngressController.java
 D:\chatpass\src\main\java\com\chatpass\platform\history\HistoryElasticsearchProperties.java
 D:\chatpass\src\main\java\com\chatpass\platform\message\MessageDirection.java
@@ -27,6 +30,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\api\ApiExceptionHandler.java
 D:\chatpass\src\main\java\com\chatpass\platform\tenant\TenantStatus.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\WorkflowExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\NoopAction.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\StreamState.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\AutoReplyAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\RuleCondition.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\ConditionMatcher.java
@@ -38,6 +42,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\api\ChannelWebhookController.jav
 D:\chatpass\src\main\java\com\chatpass\platform\ChatPassApplication.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\offline\MqttOfflineMessage.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\ActionNodeExecutor.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\StreamEventType.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowExecutionResult.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowValidator.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\RedisWorkflowExecutionStore.java
@@ -52,6 +57,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\security\IngressSecurityVerifier
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\NodeType.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\TransferToAgentAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\WorkflowAction.java
+D:\chatpass\src\main\java\com\chatpass\platform\workflow\DifyStreamChatAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\NodeTriggerStrategy.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\offline\MqttOfflineMessageStore.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\MatchOperator.java
@@ -68,6 +74,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\api\OutboxController.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttBrokerServer.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\StartNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\InMemoryWorkflowExecutionStore.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\MqttStreamControlService.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\TenantMessageController.java
 D:\chatpass\src\main\java\com\chatpass\platform\channel\SocialChannelMessageAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttIngressBridge.java
@@ -90,12 +97,14 @@ D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\TopicMatcher.java
 D:\chatpass\src\main\java\com\chatpass\platform\output\MqttOutboundChannelSender.java
 D:\chatpass\src\main\java\com\chatpass\platform\security\IngressSecurityProperties.java
 D:\chatpass\src\main\java\com\chatpass\platform\tenant\TenantService.java
+D:\chatpass\src\main\java\com\chatpass\platform\api\StreamController.java
 D:\chatpass\src\main\java\com\chatpass\platform\channel\ChannelMessageAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\message\MessageProcessingResult.java
 D:\chatpass\src\main\java\com\chatpass\platform\history\HistoryService.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\ActionResult.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\websocket\MqttWebSocketBrokerServer.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\cluster\LocalMqttClusterBus.java
+D:\chatpass\src\main\java\com\chatpass\platform\stream\StreamControlCommand.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\RuleController.java
 D:\chatpass\src\main\java\com\chatpass\platform\output\OutputChannelAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\NodeExecutionResult.java
