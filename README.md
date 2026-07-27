@@ -5,6 +5,7 @@ ChatPass V1 原型实现了消息标准化、触发规则匹配、动作执行�
 ## 当前能力
 
 - 统一消息接收：通过 `POST /api/messages/ingress` 接收 MQTT、Facebook、WhatsApp、LINE、Instagram 或 API 标准化消息。
+- 多租户 PaaS：支持租户开户、租户级渠道配置、租户消息接入、历史会话和历史消息查询。
 - 渠道 webhook：通过 `POST /api/channels/{channel}/webhook` 接收渠道原始 payload，经适配器标准化后进入消息缓冲队列。
 - 入站安全：支持 `X-ChatPass-Api-Key` 和 `X-ChatPass-Signature` HMAC-SHA256 验签。
 - 消息缓冲：内置内存队列和后台 worker，用于削峰和异步处理。
@@ -61,6 +62,18 @@ curl -X POST http://localhost:8080/api/channels/WHATSAPP/webhook \
 
 `GET /api/channels/buffer/{bufferId}` 可查询异步处理结果。
 
+## 多租户 API
+
+- `POST /api/tenants`：开户。
+- `GET /api/tenants`：租户列表。
+- `GET /api/tenants/{tenantId}`：租户详情。
+- `POST /api/tenants/{tenantId}/suspend`：暂停租户。
+- `POST /api/tenants/{tenantId}/channels`：配置租户渠道对接参数。
+- `GET /api/tenants/{tenantId}/channels`：查询租户渠道配置。
+- `POST /api/tenants/{tenantId}/messages/ingress`：租户级消息接入。
+- `GET /api/tenants/{tenantId}/conversations`：查询历史会话。
+- `GET /api/tenants/{tenantId}/conversations/{conversationId}/messages`：查询历史消息。
+
 ## 规则管理
 
 - `GET /api/rules`：查询规则。
@@ -113,6 +126,8 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 ## 设计映射
 
 - `message` 包对应统一消息接收层的标准化消息模型。
+- `tenant` 包对应多租户开户、租户状态和租户级渠道配置。
+- `history` 包对应 Redis 历史会话/消息查询和异步 ES 归档。
 - `channel` 包对应渠道 webhook 协议适配器。
 - `security` 包对应入站安全验证。
 - `buffer` 包对应消息队列缓冲，默认使用 `RedisMessageBuffer` 持久化到 Redis list，并提供死信队列。

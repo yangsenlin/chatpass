@@ -15,6 +15,10 @@ public class UnifiedMessage {
     @NotNull
     private ChannelType channel;
 
+    private String tenantId;
+
+    private String appId;
+
     private MessageDirection direction = MessageDirection.INBOUND;
 
     @NotBlank
@@ -46,6 +50,22 @@ public class UnifiedMessage {
 
     public void setChannel(ChannelType channel) {
         this.channel = channel;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public String getAppId() {
+        return appId;
+    }
+
+    public void setAppId(String appId) {
+        this.appId = appId;
     }
 
     public MessageDirection getDirection() {

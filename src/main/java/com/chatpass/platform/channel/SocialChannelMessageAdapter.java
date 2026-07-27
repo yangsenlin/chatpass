@@ -30,6 +30,8 @@ public class SocialChannelMessageAdapter implements ChannelMessageAdapter {
         UnifiedMessage message = new UnifiedMessage();
         message.setMessageId(text(payload, "messageId", text(payload, "id", UUID.randomUUID().toString())));
         message.setChannel(channel);
+        message.setTenantId(text(payload, "tenantId", text(payload, "tenant", null)));
+        message.setAppId(text(payload, "appId", text(payload, "app", null)));
         message.setSenderId(text(payload, "senderId", text(payload, "from", nested(payload, "sender", "id", "unknown"))));
         message.setReceiverId(text(payload, "receiverId", text(payload, "to", nested(payload, "recipient", "id", null))));
         message.setConversationId(text(payload, "conversationId", text(payload, "threadId", message.getSenderId())));

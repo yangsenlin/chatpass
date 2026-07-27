@@ -22,6 +22,8 @@ public class DefaultChannelMessageAdapter implements ChannelMessageAdapter {
         UnifiedMessage message = new UnifiedMessage();
         message.setMessageId(value(payload, "messageId", UUID.randomUUID().toString()));
         message.setChannel(channel);
+        message.setTenantId(value(payload, "tenantId", value(payload, "tenant", null)));
+        message.setAppId(value(payload, "appId", value(payload, "app", null)));
         message.setSenderId(value(payload, "senderId", value(payload, "from", "unknown")));
         message.setReceiverId(value(payload, "receiverId", value(payload, "to", null)));
         message.setConversationId(value(payload, "conversationId", value(payload, "threadId", message.getSenderId())));

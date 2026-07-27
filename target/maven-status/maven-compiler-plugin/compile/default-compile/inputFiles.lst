@@ -24,6 +24,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\history\AsyncHistoryIndexer.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\cluster\MqttClusterBus.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttRetainedMessageStore.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\ApiExceptionHandler.java
+D:\chatpass\src\main\java\com\chatpass\platform\tenant\TenantStatus.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\WorkflowExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\NoopAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\AutoReplyAction.java
@@ -43,6 +44,8 @@ D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\RedisWorkflowExe
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\MqttSessionRegistry.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\HttpNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowValidationException.java
+D:\chatpass\src\main\java\com\chatpass\platform\api\TenantController.java
+D:\chatpass\src\main\java\com\chatpass\platform\tenant\Tenant.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\DifyChatAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\TriggerMatcher.java
 D:\chatpass\src\main\java\com\chatpass\platform\security\IngressSecurityVerifier.java
@@ -52,6 +55,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\workflow\WorkflowAction.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\NodeTriggerStrategy.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\offline\MqttOfflineMessageStore.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\MatchOperator.java
+D:\chatpass\src\main\java\com\chatpass\platform\tenant\ChannelIntegrationService.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowExecutionRequest.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\WaitNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowExecutionContext.java
@@ -64,6 +68,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\api\OutboxController.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttBrokerServer.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\StartNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\InMemoryWorkflowExecutionStore.java
+D:\chatpass\src\main\java\com\chatpass\platform\api\TenantMessageController.java
 D:\chatpass\src\main\java\com\chatpass\platform\channel\SocialChannelMessageAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttIngressBridge.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\WorkflowTarget.java
@@ -84,8 +89,10 @@ D:\chatpass\src\main\java\com\chatpass\platform\config\ChatPassRoutingProperties
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\TopicMatcher.java
 D:\chatpass\src\main\java\com\chatpass\platform\output\MqttOutboundChannelSender.java
 D:\chatpass\src\main\java\com\chatpass\platform\security\IngressSecurityProperties.java
+D:\chatpass\src\main\java\com\chatpass\platform\tenant\TenantService.java
 D:\chatpass\src\main\java\com\chatpass\platform\channel\ChannelMessageAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\message\MessageProcessingResult.java
+D:\chatpass\src\main\java\com\chatpass\platform\history\HistoryService.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\ActionResult.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\websocket\MqttWebSocketBrokerServer.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\cluster\LocalMqttClusterBus.java
@@ -96,6 +103,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowExecutio
 D:\chatpass\src\main\java\com\chatpass\platform\message\MessageIngressService.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\MqttClientSession.java
 D:\chatpass\src\main\java\com\chatpass\platform\output\InMemoryOutputChannelAdapter.java
+D:\chatpass\src\main\java\com\chatpass\platform\tenant\ChannelIntegration.java
 D:\chatpass\src\main\java\com\chatpass\platform\channel\DefaultChannelMessageAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\message\ChannelType.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\MessageRouter.java

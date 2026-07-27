@@ -53,6 +53,21 @@ public class ChannelWebhookController {
         return messageBuffer.enqueue(message);
     }
 
+    @PostMapping("/tenants/{tenantId}/{channel}/webhook")
+    public BufferedMessage tenantWebhook(
+        @PathVariable String tenantId,
+        @PathVariable ChannelType channel,
+        @RequestHeader HttpHeaders headers,
+        @RequestBody String rawBody
+    ) throws Exception {
+        securityVerifier.verify(channel, headers, rawBody);
+        Map<String, Object> payload = objectMapper.readValue(rawBody, new TypeReference<>() {
+        });
+        UnifiedMessage message = adapterRegistry.get(channel).normalize(channel, payload);
+        message.setTenantId(tenantId);
+        return messageBuffer.enqueue(message);
+    }
+
     @GetMapping("/buffer/{bufferId}")
     public Object result(@PathVariable String bufferId) {
         return messageBuffer.result(bufferId)

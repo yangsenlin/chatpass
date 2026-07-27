@@ -19,6 +19,8 @@ public class TriggerContext {
         Map<String, Object> values = new LinkedHashMap<>();
         put(values, "message.id", message.getMessageId());
         put(values, "channel", message.getChannel());
+        put(values, "tenant.id", message.getTenantId());
+        put(values, "app.id", message.getAppId());
         put(values, "direction", message.getDirection());
         put(values, "sender.id", message.getSenderId());
         put(values, "receiver.id", message.getReceiverId());

@@ -1,6 +1,7 @@
 package com.chatpass.platform.message;
 
 import com.chatpass.platform.history.AsyncHistoryIndexer;
+import com.chatpass.platform.history.HistoryService;
 import com.chatpass.platform.output.OutboundMessage;
 import com.chatpass.platform.output.OutputChannelAdapter;
 import com.chatpass.platform.routing.RouteDecision;
@@ -21,19 +22,22 @@ public class MessageIngressService {
     private final OutputChannelAdapter outputChannelAdapter;
     private final MessageReliabilityStore reliabilityStore;
     private final AsyncHistoryIndexer historyIndexer;
+    private final HistoryService historyService;
 
     public MessageIngressService(
         MessageRouter messageRouter,
         WorkflowExecutor workflowExecutor,
         OutputChannelAdapter outputChannelAdapter,
         MessageReliabilityStore reliabilityStore,
-        AsyncHistoryIndexer historyIndexer
+        AsyncHistoryIndexer historyIndexer,
+        HistoryService historyService
     ) {
         this.messageRouter = messageRouter;
         this.workflowExecutor = workflowExecutor;
         this.outputChannelAdapter = outputChannelAdapter;
         this.reliabilityStore = reliabilityStore;
         this.historyIndexer = historyIndexer;
+        this.historyService = historyService;
     }
 
     public MessageProcessingResult receive(UnifiedMessage message) {
@@ -54,6 +58,7 @@ public class MessageIngressService {
             reliabilityStore.markStatus(message.getMessageId(), "FAILED", actionResult.getErrorMessage());
         }
         MessageProcessingResult result = new MessageProcessingResult(message, decision, actionResult, outboundMessage);
+        historyService.record(result);
         historyIndexer.index(result);
         return result;
     }
