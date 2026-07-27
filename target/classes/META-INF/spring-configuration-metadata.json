@@ -68,16 +68,40 @@
       "defaultValue": true
     },
     {
+      "name": "chatpass.mqtt.cluster-bus-channel-prefix",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": "chatpass:mqtt:cluster"
+    },
+    {
       "name": "chatpass.mqtt.cluster-enabled",
       "type": "java.lang.Boolean",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "defaultValue": true
     },
     {
+      "name": "chatpass.mqtt.cluster-id",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": "mqtt-cluster-local"
+    },
+    {
       "name": "chatpass.mqtt.enabled",
       "type": "java.lang.Boolean",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "defaultValue": true
+    },
+    {
+      "name": "chatpass.mqtt.heartbeat-interval-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 10000
+    },
+    {
+      "name": "chatpass.mqtt.heartbeat-ttl-ms",
+      "type": "java.lang.Long",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 30000
     },
     {
       "name": "chatpass.mqtt.host",
@@ -104,6 +128,24 @@
       "defaultValue": 1883
     },
     {
+      "name": "chatpass.mqtt.public-endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": "ws:\/\/localhost:8083\/mqtt"
+    },
+    {
+      "name": "chatpass.mqtt.region",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": "local"
+    },
+    {
+      "name": "chatpass.mqtt.route-shard-count",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 1024
+    },
+    {
       "name": "chatpass.mqtt.websocket-enabled",
       "type": "java.lang.Boolean",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
@@ -120,6 +162,12 @@
       "type": "java.lang.Integer",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "defaultValue": 8083
+    },
+    {
+      "name": "chatpass.mqtt.zone",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": "local-a"
     },
     {
       "name": "chatpass.routing.rules",

@@ -6,6 +6,7 @@ ChatPass V1 原型实现了消息标准化、触发规则匹配、动作执行�
 
 - 统一消息接收：通过 `POST /api/messages/ingress` 接收 MQTT、Facebook、WhatsApp、LINE、Instagram 或 API 标准化消息。
 - 多租户 PaaS：支持租户开户、租户级渠道配置、租户消息接入、历史会话和历史消息查询。
+- MQTT Control Plane：支持多 MQTT Data Plane 集群注册、租户到集群绑定和客户端 endpoint 获取。
 - 渠道 webhook：通过 `POST /api/channels/{channel}/webhook` 接收渠道原始 payload，经适配器标准化后进入消息缓冲队列。
 - 入站安全：支持 `X-ChatPass-Api-Key` 和 `X-ChatPass-Signature` HMAC-SHA256 验签。
 - 消息缓冲：内置内存队列和后台 worker，用于削峰和异步处理。
@@ -101,6 +102,10 @@ curl -X POST http://localhost:8080/api/channels/WHATSAPP/webhook \
 chatpass:
   mqtt:
     enabled: true
+    cluster-id: mqtt-cluster-local
+    region: local
+    zone: local-a
+    public-endpoint: ws://localhost:8083/mqtt
     node-id: chatpass-node-1
     host: 0.0.0.0
     port: 1883
@@ -167,6 +172,18 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 
 工作流动作类型 `DIFY_STREAM_CHAT` 会将 Dify SSE 输出转换为 MQTT chunk，并在 Redis 中聚合完整内容。
 
+## MQTT Control Plane
+
+- `POST /api/mqtt/clusters`：注册或更新 MQTT Data Plane 集群。
+- `GET /api/mqtt/clusters`：查询集群列表。
+- `GET /api/mqtt/clusters/{clusterId}`：查询集群详情。
+- `POST /api/mqtt/tenants/{tenantId}/binding`：绑定租户到指定 MQTT 集群。
+- `GET /api/mqtt/tenants/{tenantId}/binding`：查询租户集群绑定。
+- `GET /api/mqtt/tenants/{tenantId}/endpoint`：获取租户 MQTT 接入地址。
+- `GET /api/tenants/{tenantId}/mqtt/endpoint`：客户端侧获取 MQTT 接入地址。
+
+推荐生产形态是一个 ChatPass Control Plane 管理多个 MQTT Data Plane 集群。单个 MQTT 集群控制在 30-80 个节点，租户或会话固定路由到某个集群，避免 1000+ 节点组成单个大集群。
+
 ## 设计映射
 
 - `message` 包对应统一消息接收层的标准化消息模型。
@@ -179,6 +196,7 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 - `routing` 包对应路由中枢和触发器匹配引擎。
 - `workflow` 包对应动作执行抽象和 MoJarvis 风格 DAG 节点执行。
 - `mqtt` 包对应 kefu-gateway MQTT broker 主协议链路。
+- `mqtt.control` 包对应 MQTT Control Plane、集群元数据、租户绑定和 endpoint 分配。
 - `output` 包对应输出渠道适配层。
 
 ## 后续扩展

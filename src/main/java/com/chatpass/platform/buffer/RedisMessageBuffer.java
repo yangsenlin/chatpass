@@ -22,6 +22,7 @@ public class RedisMessageBuffer implements MessageBuffer {
 
     private static final int MAX_ATTEMPTS = 3;
     private static final String QUEUE_KEY = "chatpass:queue:messages";
+    private static final String PROCESSING_KEY = "chatpass:queue:messages:processing";
     private static final String DLQ_KEY = "chatpass:queue:dead-letter";
     private static final String BUFFER_PREFIX = "chatpass:buffer:";
 
@@ -44,6 +45,7 @@ public class RedisMessageBuffer implements MessageBuffer {
     @PostConstruct
     public void start() {
         running = true;
+        recoverProcessingMessages();
         worker = Executors.newSingleThreadExecutor();
         worker.submit(this::consume);
     }
@@ -89,11 +91,18 @@ public class RedisMessageBuffer implements MessageBuffer {
 
     private void consume() {
         while (running) {
-            String payload = redisTemplate.opsForList().rightPop(QUEUE_KEY, Duration.ofSeconds(1));
+            String payload = redisTemplate.opsForList().rightPopAndLeftPush(QUEUE_KEY, PROCESSING_KEY, Duration.ofSeconds(1));
             if (payload == null) {
                 continue;
             }
             process(payload);
+        }
+    }
+
+    private void recoverProcessingMessages() {
+        String payload;
+        while ((payload = redisTemplate.opsForList().rightPop(PROCESSING_KEY)) != null) {
+            redisTemplate.opsForList().leftPush(QUEUE_KEY, payload);
         }
     }
 
@@ -103,13 +112,13 @@ public class RedisMessageBuffer implements MessageBuffer {
             mark(queuePayload.bufferId(), "PROCESSING", null);
             messageIngressService.receive(queuePayload.message());
             mark(queuePayload.bufferId(), "DONE", null);
+            ack(payload);
         } catch (Exception ex) {
-            deadLetter(payload, ex.getMessage());
+            retryOrDeadLetter(payload, ex.getMessage());
         }
     }
 
-    private void deadLetter(String payload, String reason) {
-        redisTemplate.opsForList().leftPush(DLQ_KEY, payload);
+    private void retryOrDeadLetter(String payload, String reason) {
         try {
             QueuePayload queuePayload = objectMapper.readValue(payload, QueuePayload.class);
             String key = BUFFER_PREFIX + queuePayload.bufferId();
@@ -118,12 +127,20 @@ public class RedisMessageBuffer implements MessageBuffer {
             redisTemplate.opsForHash().put(key, "errorMessage", reason == null ? "" : reason);
             redisTemplate.opsForHash().put(key, "updatedAt", Instant.now().toString());
             redisTemplate.opsForHash().put(key, "status", attempts >= MAX_ATTEMPTS ? "DEAD" : "RETRY");
+            ack(payload);
             if (attempts < MAX_ATTEMPTS) {
                 redisTemplate.opsForList().leftPush(QUEUE_KEY, payload);
+            } else {
+                redisTemplate.opsForList().leftPush(DLQ_KEY, payload);
             }
         } catch (Exception ignored) {
+            ack(payload);
             redisTemplate.opsForList().leftPush(DLQ_KEY, payload);
         }
+    }
+
+    private void ack(String payload) {
+        redisTemplate.opsForList().remove(PROCESSING_KEY, 1, payload);
     }
 
     private void mark(String bufferId, String status, String errorMessage) {

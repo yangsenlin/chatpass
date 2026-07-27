@@ -24,7 +24,7 @@ public class MqttStreamPublisher {
         if (brokerService == null) {
             return;
         }
-        brokerService.publishLocal(topic(message), toJson(message).getBytes(StandardCharsets.UTF_8), qoS(message), false);
+        brokerService.publishFromServer(topic(message), toJson(message).getBytes(StandardCharsets.UTF_8), qoS(message), false);
     }
 
     public String topic(StreamMessage message) {

@@ -1,6 +1,8 @@
 package com.chatpass.platform.workflow;
 
 import com.chatpass.platform.message.UnifiedMessage;
+import com.chatpass.platform.mqtt.MqttBrokerProperties;
+import com.chatpass.platform.mqtt.control.MqttRouteTable;
 import com.chatpass.platform.stream.MqttStreamPublisher;
 import com.chatpass.platform.stream.RedisStreamStore;
 import com.chatpass.platform.stream.StreamEventType;
@@ -27,15 +29,21 @@ public class DifyStreamChatAction implements WorkflowAction {
     private final ObjectProvider<DifyChatApi> difyChatApiProvider;
     private final RedisStreamStore streamStore;
     private final MqttStreamPublisher streamPublisher;
+    private final MqttRouteTable routeTable;
+    private final MqttBrokerProperties mqttProperties;
 
     public DifyStreamChatAction(
         ObjectProvider<DifyChatApi> difyChatApiProvider,
         RedisStreamStore streamStore,
-        MqttStreamPublisher streamPublisher
+        MqttStreamPublisher streamPublisher,
+        MqttRouteTable routeTable,
+        MqttBrokerProperties mqttProperties
     ) {
         this.difyChatApiProvider = difyChatApiProvider;
         this.streamStore = streamStore;
         this.streamPublisher = streamPublisher;
+        this.routeTable = routeTable;
+        this.mqttProperties = mqttProperties;
     }
 
     @Override
@@ -55,6 +63,7 @@ public class DifyStreamChatAction implements WorkflowAction {
         AtomicBoolean finished = new AtomicBoolean(false);
         StreamMessage start = message(request.getMessage(), streamId, sequence.getAndIncrement(), StreamEventType.START, null);
         streamStore.create(start);
+        bindStreamRoute(start);
         streamPublisher.publish(start);
 
         try {
@@ -108,6 +117,10 @@ public class DifyStreamChatAction implements WorkflowAction {
     }
 
     private void complete(UnifiedMessage message, String streamId, AtomicInteger sequence, AtomicBoolean finished) {
+        if (streamStore.isCancelled(streamId)) {
+            finished.set(true);
+            return;
+        }
         if (!finished.compareAndSet(false, true)) {
             return;
         }
@@ -116,6 +129,10 @@ public class DifyStreamChatAction implements WorkflowAction {
     }
 
     private void fail(UnifiedMessage message, String streamId, AtomicInteger sequence, String errorMessage, AtomicBoolean finished) {
+        if (streamStore.isCancelled(streamId)) {
+            finished.set(true);
+            return;
+        }
         if (!finished.compareAndSet(false, true)) {
             return;
         }
@@ -135,6 +152,19 @@ public class DifyStreamChatAction implements WorkflowAction {
         message.setContent(content);
         message.getMetadata().put("source", "dify");
         return message;
+    }
+
+    private void bindStreamRoute(StreamMessage start) {
+        if (start.getConversationId() != null && !start.getConversationId().isBlank()) {
+            routeTable.bindConversation(start.getTenantId(), start.getConversationId(), mqttProperties.getClusterId());
+        }
+        routeTable.bindStream(
+            start.getTenantId(),
+            start.getConversationId(),
+            start.getStreamId(),
+            mqttProperties.getClusterId(),
+            mqttProperties.getNodeId()
+        );
     }
 
     private ChatMessageRequest buildRequest(ActionExecutionRequest request) {

@@ -19,6 +19,10 @@ management:
 chatpass:
   mqtt:
     enabled: true
+    cluster-id: mqtt-cluster-local
+    region: local
+    zone: local-a
+    public-endpoint: ws://localhost:8083/mqtt
     node-id: chatpass-node-1
     host: 0.0.0.0
     port: 1883
@@ -26,6 +30,10 @@ chatpass:
     websocket-port: 8083
     websocket-path: /mqtt
     cluster-enabled: true
+    cluster-bus-channel-prefix: chatpass:mqtt:cluster
+    heartbeat-interval-ms: 10000
+    heartbeat-ttl-ms: 30000
+    route-shard-count: 1024
     offline-enabled: true
     bridge-ingress: true
   security:

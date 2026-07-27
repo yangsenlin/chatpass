@@ -60,6 +60,12 @@ public class MqttBrokerService {
         persistOffline(topic, payload, qoS);
     }
 
+    public void publishFromServer(String topic, byte[] payload, MqttQoS qoS, boolean retain) {
+        publishLocal(topic, payload, qoS, retain);
+        clusterBus.broadcast(new MqttClusterMessage(properties.getNodeId(), topic, payload, qoS, retain));
+        persistOffline(topic, payload, qoS);
+    }
+
     public void publishLocal(String topic, byte[] payload, MqttQoS qoS, boolean retain) {
         for (MqttClientSession session : sessionRegistry.subscribers(topic)) {
             MqttQoS deliverQoS = subscribedQoS(session, topic, qoS);
