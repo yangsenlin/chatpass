@@ -1,0 +1,40 @@
+# Maven build output
+target/
+*.class
+
+# Logs
+logs/
+*.log
+
+# Runtime and temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+application-dev-local.yml
+application-dev-local.yaml
+
+# Test and coverage output
+coverage/
+*.exec
+
+# OS and tool caches
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar

@@ -45,6 +45,7 @@ public class MessageIngressService {
         outbound.setTargetUserId(inbound.getSenderId());
         outbound.setConversationId(inbound.getConversationId());
         outbound.setText(actionResult.getOutputText());
+        outbound.getAttributes().putAll(inbound.getAttributes());
         outbound.getAttributes().put("sourceMessageId", inbound.getMessageId());
         outbound.getAttributes().put("actionStatus", actionResult.getStatus());
         outbound.getAttributes().putAll(actionResult.getOutputs());

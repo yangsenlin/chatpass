@@ -23,6 +23,15 @@ chatpass:
     cluster-enabled: true
     offline-enabled: true
     bridge-ingress: true
+  security:
+    ingress:
+      enabled: true
+      api-key: dev-chatpass-key
+      webhook-secrets:
+        facebook: dev-facebook-secret
+        whatsapp: dev-whatsapp-secret
+        line: dev-line-secret
+        instagram: dev-instagram-secret
   dify:
     enabled: false
     base-url: https://api.dify.ai/v1
