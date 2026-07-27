@@ -29,7 +29,10 @@ import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 
 @Component
 @ChannelHandler.Sharable
@@ -41,6 +44,8 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
     private final RedisRateLimiter rateLimiter;
     private final MessageSizeValidator messageSizeValidator;
     private final ChatPassMetrics metrics;
+    private final Map<MqttMessageType, BiConsumer<ChannelHandlerContext, MqttMessage>> handlerMap =
+        new EnumMap<>(MqttMessageType.class);
 
     public MqttBrokerChannelHandler(
         MqttSessionRegistry sessionRegistry,
@@ -56,36 +61,33 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
         this.rateLimiter = rateLimiter;
         this.messageSizeValidator = messageSizeValidator;
         this.metrics = metrics;
+        registerHandlers();
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, MqttMessage message) {
         MqttMessageType messageType = message.fixedHeader().messageType();
-        switch (messageType) {
-            case CONNECT:
-                handleConnect(ctx, (MqttConnectMessage) message);
-                break;
-            case SUBSCRIBE:
-                handleSubscribe(ctx, (MqttSubscribeMessage) message);
-                break;
-            case UNSUBSCRIBE:
-                handleUnsubscribe(ctx, (MqttUnsubscribeMessage) message);
-                break;
-            case PUBLISH:
-                handlePublish(ctx, (MqttPublishMessage) message);
-                break;
-            case PUBREL:
-                handlePubRel(ctx, message);
-                break;
-            case PINGREQ:
-                ctx.writeAndFlush(MqttMessage.PINGRESP);
-                break;
-            case DISCONNECT:
-                ctx.close();
-                break;
-            default:
-                break;
+        if (messageType != MqttMessageType.CONNECT && sessionRegistry.findByChannel(ctx.channel()).isEmpty()) {
+            ctx.close();
+            return;
         }
+        BiConsumer<ChannelHandlerContext, MqttMessage> handler = handlerMap.get(messageType);
+        if (handler != null) {
+            handler.accept(ctx, message);
+        }
+    }
+
+    private void registerHandlers() {
+        handlerMap.put(MqttMessageType.CONNECT, (ctx, message) -> handleConnect(ctx, (MqttConnectMessage) message));
+        handlerMap.put(MqttMessageType.SUBSCRIBE, (ctx, message) -> handleSubscribe(ctx, (MqttSubscribeMessage) message));
+        handlerMap.put(MqttMessageType.UNSUBSCRIBE, (ctx, message) -> handleUnsubscribe(ctx, (MqttUnsubscribeMessage) message));
+        handlerMap.put(MqttMessageType.PUBLISH, (ctx, message) -> handlePublish(ctx, (MqttPublishMessage) message));
+        handlerMap.put(MqttMessageType.PUBREL, this::handlePubRel);
+        handlerMap.put(MqttMessageType.PUBREC, this::handlePubRec);
+        handlerMap.put(MqttMessageType.PUBACK, this::handlePubAck);
+        handlerMap.put(MqttMessageType.PUBCOMP, this::handlePubComp);
+        handlerMap.put(MqttMessageType.PINGREQ, (ctx, message) -> ctx.writeAndFlush(MqttMessage.PINGRESP));
+        handlerMap.put(MqttMessageType.DISCONNECT, (ctx, message) -> ctx.close());
     }
 
     @Override
@@ -206,6 +208,19 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
         ctx.writeAndFlush(messageWithId(MqttMessageType.PUBCOMP, variableHeader.messageId()));
     }
 
+    private void handlePubRec(ChannelHandlerContext ctx, MqttMessage message) {
+        MqttMessageIdVariableHeader variableHeader = (MqttMessageIdVariableHeader) message.variableHeader();
+        ctx.writeAndFlush(messageWithId(MqttMessageType.PUBREL, variableHeader.messageId()));
+    }
+
+    private void handlePubAck(ChannelHandlerContext ctx, MqttMessage message) {
+        // QoS1 outbound delivery state is currently persisted by the broker service layer.
+    }
+
+    private void handlePubComp(ChannelHandlerContext ctx, MqttMessage message) {
+        // QoS2 outbound delivery completion hook for future durable inflight cleanup.
+    }
+
     private byte[] payloadBytes(ByteBuf payload) {
         byte[] bytes = new byte[payload.readableBytes()];
         payload.getBytes(payload.readerIndex(), bytes);
@@ -220,8 +235,9 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
     }
 
     private MqttMessage messageWithId(MqttMessageType messageType, int packetId) {
+        MqttQoS qos = messageType == MqttMessageType.PUBREL ? MqttQoS.AT_LEAST_ONCE : MqttQoS.AT_MOST_ONCE;
         return MqttMessageFactory.newMessage(
-            new MqttFixedHeader(messageType, false, MqttQoS.AT_MOST_ONCE, false, 0),
+            new MqttFixedHeader(messageType, false, qos, false, 0),
             MqttMessageIdVariableHeader.from(packetId),
             null
         );

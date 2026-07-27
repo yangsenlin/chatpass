@@ -2,19 +2,16 @@ package com.chatpass.platform.mqtt.websocket;
 
 import com.chatpass.platform.mqtt.MqttBrokerProperties;
 import com.chatpass.platform.mqtt.handler.MqttBrokerChannelHandler;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
+import com.chatpass.platform.mqtt.netty.NettyServerListener;
+import com.chatpass.platform.mqtt.netty.NettyTcpServer;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.timeout.IdleStateHandler;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -24,63 +21,59 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "chatpass.mqtt", name = "websocket-enabled", havingValue = "true", matchIfMissing = true)
-public class MqttWebSocketBrokerServer {
+public class MqttWebSocketBrokerServer extends NettyTcpServer {
 
     private static final Logger log = LoggerFactory.getLogger(MqttWebSocketBrokerServer.class);
 
     private final MqttBrokerProperties properties;
     private final MqttBrokerChannelHandler brokerChannelHandler;
-    private EventLoopGroup bossGroup;
-    private EventLoopGroup workerGroup;
-    private Channel serverChannel;
 
     public MqttWebSocketBrokerServer(MqttBrokerProperties properties, MqttBrokerChannelHandler brokerChannelHandler) {
+        super(properties.getWebsocketPort(), properties.getHost());
         this.properties = properties;
         this.brokerChannelHandler = brokerChannelHandler;
     }
 
     @PostConstruct
-    public void start() throws InterruptedException {
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup();
-        ServerBootstrap bootstrap = new ServerBootstrap()
-            .group(bossGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
-            .option(ChannelOption.SO_BACKLOG, 128)
-            .childOption(ChannelOption.SO_KEEPALIVE, true)
-            .childHandler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                protected void initChannel(SocketChannel channel) {
-                    channel.pipeline()
-                        .addLast("httpCodec", new HttpServerCodec())
-                        .addLast("httpAggregator", new HttpObjectAggregator(properties.getMaxPayloadBytes()))
-                        .addLast("webSocketProtocol", new WebSocketServerProtocolHandler(properties.getWebsocketPath(), "mqtt", true))
-                        .addLast("webSocketMqttFrameCodec", new WebSocketMqttFrameCodec())
-                        .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
-                        .addLast("mqttEncoder", MqttEncoder.INSTANCE)
-                        .addLast("mqttBrokerHandler", brokerChannelHandler);
-                }
-            });
-        serverChannel = bootstrap.bind(properties.getHost(), properties.getWebsocketPort()).sync().channel();
-        log.info(
-            "ChatPass MQTT WebSocket broker started at {}:{}{}",
-            properties.getHost(),
-            properties.getWebsocketPort(),
-            properties.getWebsocketPath()
-        );
+    public void start() {
+        init();
+        super.start(listener("ChatPass MQTT WebSocket broker"));
     }
 
     @PreDestroy
     public void stop() {
-        if (serverChannel != null) {
-            serverChannel.close();
-        }
-        if (bossGroup != null) {
-            bossGroup.shutdownGracefully();
-        }
-        if (workerGroup != null) {
-            workerGroup.shutdownGracefully();
-        }
-        log.info("ChatPass MQTT WebSocket broker stopped");
+        super.stop(listener("ChatPass MQTT WebSocket broker"));
+    }
+
+    @Override
+    protected void initPipeline(ChannelPipeline pipeline) {
+        pipeline
+            .addLast("idleHandler", new IdleStateHandler(0, 0, 60))
+            .addLast("httpCodec", new HttpServerCodec())
+            .addLast("httpAggregator", new HttpObjectAggregator(properties.getMaxPayloadBytes()))
+            .addLast("webSocketProtocol", new WebSocketServerProtocolHandler(properties.getWebsocketPath(), "mqtt", true))
+            .addLast("webSocketMqttFrameCodec", new WebSocketMqttFrameCodec())
+            .addLast("mqttEncoder", MqttEncoder.INSTANCE)
+            .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
+            .addLast("mqttBrokerHandler", brokerChannelHandler);
+    }
+
+    @Override
+    protected ChannelHandler getChannelHandler() {
+        return brokerChannelHandler;
+    }
+
+    private NettyServerListener listener(String name) {
+        return new NettyServerListener() {
+            @Override
+            public void onSuccess(int port) {
+                log.info("{} lifecycle success on port {}", name, port);
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                log.error("{} lifecycle failed", name, throwable);
+            }
+        };
     }
 }

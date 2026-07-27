@@ -1,16 +1,13 @@
 package com.chatpass.platform.mqtt;
 
 import com.chatpass.platform.mqtt.handler.MqttBrokerChannelHandler;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
+import com.chatpass.platform.mqtt.netty.NettyServerListener;
+import com.chatpass.platform.mqtt.netty.NettyTcpServer;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
+import io.netty.handler.timeout.IdleStateHandler;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -20,54 +17,55 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "chatpass.mqtt", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class MqttBrokerServer {
+public class MqttBrokerServer extends NettyTcpServer {
 
     private static final Logger log = LoggerFactory.getLogger(MqttBrokerServer.class);
 
     private final MqttBrokerProperties properties;
     private final MqttBrokerChannelHandler brokerChannelHandler;
-    private EventLoopGroup bossGroup;
-    private EventLoopGroup workerGroup;
-    private Channel serverChannel;
 
     public MqttBrokerServer(MqttBrokerProperties properties, MqttBrokerChannelHandler brokerChannelHandler) {
+        super(properties.getPort(), properties.getHost());
         this.properties = properties;
         this.brokerChannelHandler = brokerChannelHandler;
     }
 
     @PostConstruct
-    public void start() throws InterruptedException {
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup();
-        ServerBootstrap bootstrap = new ServerBootstrap()
-            .group(bossGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
-            .option(ChannelOption.SO_BACKLOG, 128)
-            .childOption(ChannelOption.SO_KEEPALIVE, true)
-            .childHandler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                protected void initChannel(SocketChannel channel) {
-                    channel.pipeline()
-                        .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
-                        .addLast("mqttEncoder", MqttEncoder.INSTANCE)
-                        .addLast("mqttBrokerHandler", brokerChannelHandler);
-                }
-            });
-        serverChannel = bootstrap.bind(properties.getHost(), properties.getPort()).sync().channel();
-        log.info("ChatPass MQTT broker started at {}:{}", properties.getHost(), properties.getPort());
+    public void start() {
+        init();
+        super.start(listener("ChatPass MQTT broker"));
     }
 
     @PreDestroy
     public void stop() {
-        if (serverChannel != null) {
-            serverChannel.close();
-        }
-        if (bossGroup != null) {
-            bossGroup.shutdownGracefully();
-        }
-        if (workerGroup != null) {
-            workerGroup.shutdownGracefully();
-        }
-        log.info("ChatPass MQTT broker stopped");
+        super.stop(listener("ChatPass MQTT broker"));
+    }
+
+    @Override
+    protected void initPipeline(ChannelPipeline pipeline) {
+        pipeline
+            .addLast("idleHandler", new IdleStateHandler(0, 0, 60))
+            .addLast("mqttEncoder", MqttEncoder.INSTANCE)
+            .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
+            .addLast("mqttBrokerHandler", brokerChannelHandler);
+    }
+
+    @Override
+    protected ChannelHandler getChannelHandler() {
+        return brokerChannelHandler;
+    }
+
+    private NettyServerListener listener(String name) {
+        return new NettyServerListener() {
+            @Override
+            public void onSuccess(int port) {
+                log.info("{} lifecycle success on port {}", name, port);
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                log.error("{} lifecycle failed", name, throwable);
+            }
+        };
     }
 }
