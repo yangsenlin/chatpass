@@ -4,6 +4,7 @@ import com.chatpass.platform.config.ChatPassRoutingProperties;
 import com.chatpass.platform.config.DifyProperties;
 import com.chatpass.platform.history.HistoryElasticsearchProperties;
 import com.chatpass.platform.mqtt.MqttBrokerProperties;
+import com.chatpass.platform.protection.ChatPassProtectionProperties;
 import com.chatpass.platform.security.IngressSecurityProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     ChatPassRoutingProperties.class,
     DifyProperties.class,
     MqttBrokerProperties.class,
+    ChatPassProtectionProperties.class,
     IngressSecurityProperties.class,
     HistoryElasticsearchProperties.class
 })

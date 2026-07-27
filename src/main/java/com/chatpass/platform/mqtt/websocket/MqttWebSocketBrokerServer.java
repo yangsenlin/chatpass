@@ -53,10 +53,10 @@ public class MqttWebSocketBrokerServer {
                 protected void initChannel(SocketChannel channel) {
                     channel.pipeline()
                         .addLast("httpCodec", new HttpServerCodec())
-                        .addLast("httpAggregator", new HttpObjectAggregator(65536))
+                        .addLast("httpAggregator", new HttpObjectAggregator(properties.getMaxPayloadBytes()))
                         .addLast("webSocketProtocol", new WebSocketServerProtocolHandler(properties.getWebsocketPath(), "mqtt", true))
                         .addLast("webSocketMqttFrameCodec", new WebSocketMqttFrameCodec())
-                        .addLast("mqttDecoder", new MqttDecoder())
+                        .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
                         .addLast("mqttEncoder", MqttEncoder.INSTANCE)
                         .addLast("mqttBrokerHandler", brokerChannelHandler);
                 }

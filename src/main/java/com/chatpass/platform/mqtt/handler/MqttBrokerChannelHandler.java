@@ -1,8 +1,12 @@
 package com.chatpass.platform.mqtt.handler;
 
+import com.chatpass.platform.mqtt.MqttBrokerProperties;
 import com.chatpass.platform.mqtt.MqttBrokerService;
 import com.chatpass.platform.mqtt.session.MqttClientSession;
 import com.chatpass.platform.mqtt.session.MqttSessionRegistry;
+import com.chatpass.platform.protection.ChatPassMetrics;
+import com.chatpass.platform.protection.MessageSizeValidator;
+import com.chatpass.platform.protection.RedisRateLimiter;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -24,6 +28,7 @@ import io.netty.handler.codec.mqtt.MqttTopicSubscription;
 import io.netty.handler.codec.mqtt.MqttUnsubscribeMessage;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 
 @Component
@@ -32,10 +37,25 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
 
     private final MqttSessionRegistry sessionRegistry;
     private final MqttBrokerService brokerService;
+    private final MqttBrokerProperties properties;
+    private final RedisRateLimiter rateLimiter;
+    private final MessageSizeValidator messageSizeValidator;
+    private final ChatPassMetrics metrics;
 
-    public MqttBrokerChannelHandler(MqttSessionRegistry sessionRegistry, MqttBrokerService brokerService) {
+    public MqttBrokerChannelHandler(
+        MqttSessionRegistry sessionRegistry,
+        MqttBrokerService brokerService,
+        MqttBrokerProperties properties,
+        RedisRateLimiter rateLimiter,
+        MessageSizeValidator messageSizeValidator,
+        ChatPassMetrics metrics
+    ) {
         this.sessionRegistry = sessionRegistry;
         this.brokerService = brokerService;
+        this.properties = properties;
+        this.rateLimiter = rateLimiter;
+        this.messageSizeValidator = messageSizeValidator;
+        this.metrics = metrics;
     }
 
     @Override
@@ -78,6 +98,12 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
         String username = message.payload().userName();
         if (clientId == null || clientId.isBlank()) {
             ctx.writeAndFlush(connAck(MqttConnectReturnCode.CONNECTION_REFUSED_IDENTIFIER_REJECTED));
+            ctx.close();
+            return;
+        }
+        if (connectionLimitExceeded(username)) {
+            metrics.incrementMqttRejectedConnections();
+            ctx.writeAndFlush(connAck(MqttConnectReturnCode.CONNECTION_REFUSED_SERVER_UNAVAILABLE));
             ctx.close();
             return;
         }
@@ -130,6 +156,19 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
             return;
         }
         byte[] payload = payloadBytes(message.payload());
+        if (payload.length > properties.getMaxPayloadBytes()) {
+            metrics.incrementOversizedMessages();
+            metrics.incrementMqttRejectedMessages();
+            ctx.close();
+            return;
+        }
+        if (!rateLimiter.allow("mqtt:publish:" + rateLimitKey(session), properties.getPublishRateLimitPerMinute(), Duration.ofMinutes(1))) {
+            metrics.incrementRateLimitedRequests();
+            metrics.incrementMqttRejectedMessages();
+            ctx.close();
+            return;
+        }
+        messageSizeValidator.validateBytes("mqtt", payload.length, properties.getMaxPayloadBytes());
         MqttFixedHeader fixedHeader = message.fixedHeader();
         brokerService.publishFromClient(
             session,
@@ -145,6 +184,21 @@ public class MqttBrokerChannelHandler extends SimpleChannelInboundHandler<MqttMe
         } else if (fixedHeader.qosLevel() == MqttQoS.EXACTLY_ONCE) {
             ctx.writeAndFlush(messageWithId(MqttMessageType.PUBREC, message.variableHeader().packetId()));
         }
+        metrics.incrementMqttPublishes();
+    }
+
+    private boolean connectionLimitExceeded(String username) {
+        if (properties.getMaxConnections() > 0 && sessionRegistry.activeConnectionCount() >= properties.getMaxConnections()) {
+            return true;
+        }
+        String tenantKey = username == null || username.isBlank() ? "anonymous" : username;
+        return properties.getMaxConnectionsPerTenant() > 0
+            && sessionRegistry.activeConnectionCountByUsername(tenantKey) >= properties.getMaxConnectionsPerTenant();
+    }
+
+    private String rateLimitKey(MqttClientSession session) {
+        String username = session.getUsername();
+        return username == null || username.isBlank() ? session.getClientId() : username;
     }
 
     private void handlePubRel(ChannelHandlerContext ctx, MqttMessage message) {

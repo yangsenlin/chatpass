@@ -4,8 +4,13 @@ import com.chatpass.platform.history.HistoryService;
 import com.chatpass.platform.message.MessageIngressService;
 import com.chatpass.platform.message.MessageProcessingResult;
 import com.chatpass.platform.message.UnifiedMessage;
+import com.chatpass.platform.protection.ChatPassMetrics;
+import com.chatpass.platform.protection.ChatPassProtectionProperties;
+import com.chatpass.platform.protection.MessageSizeValidator;
+import com.chatpass.platform.protection.RateLimitExceededException;
+import com.chatpass.platform.protection.RedisRateLimiter;
 import com.chatpass.platform.tenant.TenantService;
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.List;
 
 @RestController
@@ -23,21 +29,43 @@ public class TenantMessageController {
     private final TenantService tenantService;
     private final MessageIngressService messageIngressService;
     private final HistoryService historyService;
+    private final ObjectMapper objectMapper;
+    private final ChatPassProtectionProperties protectionProperties;
+    private final MessageSizeValidator messageSizeValidator;
+    private final RedisRateLimiter rateLimiter;
+    private final ChatPassMetrics metrics;
 
     public TenantMessageController(
         TenantService tenantService,
         MessageIngressService messageIngressService,
-        HistoryService historyService
+        HistoryService historyService,
+        ObjectMapper objectMapper,
+        ChatPassProtectionProperties protectionProperties,
+        MessageSizeValidator messageSizeValidator,
+        RedisRateLimiter rateLimiter,
+        ChatPassMetrics metrics
     ) {
         this.tenantService = tenantService;
         this.messageIngressService = messageIngressService;
         this.historyService = historyService;
+        this.objectMapper = objectMapper;
+        this.protectionProperties = protectionProperties;
+        this.messageSizeValidator = messageSizeValidator;
+        this.rateLimiter = rateLimiter;
+        this.metrics = metrics;
     }
 
     @PostMapping("/messages/ingress")
-    public MessageProcessingResult ingress(@PathVariable String tenantId, @Valid @RequestBody UnifiedMessage message) {
+    public MessageProcessingResult ingress(@PathVariable String tenantId, @RequestBody String rawBody) throws Exception {
         tenantService.get(tenantId).orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantId));
+        messageSizeValidator.validateText("tenant message ingress", rawBody);
+        if (!rateLimiter.allow("rest:ingress:" + tenantId, protectionProperties.getIngressRateLimitPerMinute(), Duration.ofMinutes(1))) {
+            metrics.incrementRateLimitedRequests();
+            throw new RateLimitExceededException("tenant message ingress rate limit exceeded");
+        }
+        UnifiedMessage message = objectMapper.readValue(rawBody, UnifiedMessage.class);
         message.setTenantId(tenantId);
+        metrics.incrementIngressMessages();
         return messageIngressService.receive(message);
     }
 

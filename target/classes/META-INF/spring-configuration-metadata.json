@@ -16,6 +16,11 @@
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
     },
     {
+      "name": "chatpass.protection",
+      "type": "com.chatpass.platform.protection.ChatPassProtectionProperties",
+      "sourceType": "com.chatpass.platform.protection.ChatPassProtectionProperties"
+    },
+    {
       "name": "chatpass.routing",
       "type": "com.chatpass.platform.config.ChatPassRoutingProperties",
       "sourceType": "com.chatpass.platform.config.ChatPassRoutingProperties"
@@ -110,6 +115,24 @@
       "defaultValue": "0.0.0.0"
     },
     {
+      "name": "chatpass.mqtt.max-connections",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 10000
+    },
+    {
+      "name": "chatpass.mqtt.max-connections-per-tenant",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 1000
+    },
+    {
+      "name": "chatpass.mqtt.max-payload-bytes",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 0
+    },
+    {
       "name": "chatpass.mqtt.node-id",
       "type": "java.lang.String",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
@@ -132,6 +155,12 @@
       "type": "java.lang.String",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "defaultValue": "ws:\/\/localhost:8083\/mqtt"
+    },
+    {
+      "name": "chatpass.mqtt.publish-rate-limit-per-minute",
+      "type": "java.lang.Long",
+      "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
+      "defaultValue": 6000
     },
     {
       "name": "chatpass.mqtt.region",
@@ -168,6 +197,30 @@
       "type": "java.lang.String",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "defaultValue": "local-a"
+    },
+    {
+      "name": "chatpass.protection.ingress-rate-limit-per-minute",
+      "type": "java.lang.Long",
+      "sourceType": "com.chatpass.platform.protection.ChatPassProtectionProperties",
+      "defaultValue": 3000
+    },
+    {
+      "name": "chatpass.protection.max-message-bytes",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chatpass.platform.protection.ChatPassProtectionProperties",
+      "defaultValue": 0
+    },
+    {
+      "name": "chatpass.protection.rate-limit-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.protection.ChatPassProtectionProperties",
+      "defaultValue": true
+    },
+    {
+      "name": "chatpass.protection.webhook-rate-limit-per-minute",
+      "type": "java.lang.Long",
+      "sourceType": "com.chatpass.platform.protection.ChatPassProtectionProperties",
+      "defaultValue": 3000
     },
     {
       "name": "chatpass.routing.rules",

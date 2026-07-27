@@ -1,4 +1,5 @@
 D:\chatpass\src\main\java\com\chatpass\platform\buffer\BufferedMessage.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\ChatPassProtectionProperties.java
 D:\chatpass\src\main\java\com\chatpass\platform\config\DifyConfiguration.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\ActionExecutionRequest.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\repository\TriggerRuleRepository.java
@@ -8,6 +9,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\EndNodeExec
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\RedisWorkflowRepository.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\WorkflowNodeExecutorRegistry.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowConditionEvaluator.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\MessageSizeValidator.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\TriggerContext.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\control\MqttNodeHeartbeat.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\WorkflowController.java
@@ -17,6 +19,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\output\CompositeOutputChannelAda
 D:\chatpass\src\main\java\com\chatpass\platform\output\OutboundMessage.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowDefinition.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttRetainedMessage.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\RedisRateLimiter.java
 D:\chatpass\src\main\java\com\chatpass\platform\routing\RouteDecision.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowStatus.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\websocket\WebSocketMqttFrameCodec.java
@@ -56,6 +59,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\MqttSessionRegistry
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\control\MqttNodeHeartbeatService.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\HttpNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowValidationException.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\MessageTooLargeException.java
 D:\chatpass\src\main\java\com\chatpass\platform\api\TenantController.java
 D:\chatpass\src\main\java\com\chatpass\platform\tenant\Tenant.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\DifyChatAction.java
@@ -94,6 +98,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\routing\TriggerRule.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowEdgeDefinition.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\cluster\RedisMqttClusterBus.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\ActionRegistry.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\RateLimitExceededException.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\node\LoopNodeExecutor.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\MqttBrokerProperties.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\control\LocalMqttClusterRegistrar.java
@@ -122,6 +127,7 @@ D:\chatpass\src\main\java\com\chatpass\platform\api\RuleController.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\control\MqttRouteTable.java
 D:\chatpass\src\main\java\com\chatpass\platform\output\OutputChannelAdapter.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\NodeExecutionResult.java
+D:\chatpass\src\main\java\com\chatpass\platform\protection\ChatPassMetrics.java
 D:\chatpass\src\main\java\com\chatpass\platform\workflow\engine\WorkflowExecutionStore.java
 D:\chatpass\src\main\java\com\chatpass\platform\message\MessageIngressService.java
 D:\chatpass\src\main\java\com\chatpass\platform\mqtt\session\MqttClientSession.java

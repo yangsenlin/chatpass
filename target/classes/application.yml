@@ -14,7 +14,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
 chatpass:
   mqtt:
@@ -34,8 +34,17 @@ chatpass:
     heartbeat-interval-ms: 10000
     heartbeat-ttl-ms: 30000
     route-shard-count: 1024
+    max-connections: 10000
+    max-connections-per-tenant: 1000
+    max-payload-bytes: 1048576
+    publish-rate-limit-per-minute: 6000
     offline-enabled: true
     bridge-ingress: true
+  protection:
+    rate-limit-enabled: true
+    ingress-rate-limit-per-minute: 3000
+    webhook-rate-limit-per-minute: 3000
+    max-message-bytes: 1048576
   security:
     ingress:
       enabled: true

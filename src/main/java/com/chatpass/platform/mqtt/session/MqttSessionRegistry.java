@@ -42,6 +42,20 @@ public class MqttSessionRegistry {
         return Optional.ofNullable(clientIdsByChannel.get(channel)).map(sessionsByClientId::get);
     }
 
+    public int activeConnectionCount() {
+        return sessionsByClientId.size();
+    }
+
+    public int activeConnectionCountByUsername(String username) {
+        return (int) sessionsByClientId.values().stream()
+            .filter(session -> username.equals(usernameKey(session.getUsername())))
+            .count();
+    }
+
+    private String usernameKey(String username) {
+        return username == null || username.isBlank() ? "anonymous" : username;
+    }
+
     public void unregister(Channel channel) {
         String clientId = clientIdsByChannel.remove(channel);
         if (clientId != null) {

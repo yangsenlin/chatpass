@@ -37,6 +37,14 @@ public class MqttBrokerProperties {
 
     private int routeShardCount = 1024;
 
+    private int maxConnections = 10000;
+
+    private int maxConnectionsPerTenant = 1000;
+
+    private int maxPayloadBytes = 1024 * 1024;
+
+    private long publishRateLimitPerMinute = 6000;
+
     private boolean offlineEnabled = true;
 
     private boolean bridgeIngress = true;
@@ -167,6 +175,38 @@ public class MqttBrokerProperties {
 
     public void setRouteShardCount(int routeShardCount) {
         this.routeShardCount = routeShardCount;
+    }
+
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public void setMaxConnections(int maxConnections) {
+        this.maxConnections = maxConnections;
+    }
+
+    public int getMaxConnectionsPerTenant() {
+        return maxConnectionsPerTenant;
+    }
+
+    public void setMaxConnectionsPerTenant(int maxConnectionsPerTenant) {
+        this.maxConnectionsPerTenant = maxConnectionsPerTenant;
+    }
+
+    public int getMaxPayloadBytes() {
+        return maxPayloadBytes;
+    }
+
+    public void setMaxPayloadBytes(int maxPayloadBytes) {
+        this.maxPayloadBytes = maxPayloadBytes;
+    }
+
+    public long getPublishRateLimitPerMinute() {
+        return publishRateLimitPerMinute;
+    }
+
+    public void setPublishRateLimitPerMinute(long publishRateLimitPerMinute) {
+        this.publishRateLimitPerMinute = publishRateLimitPerMinute;
     }
 
     public boolean isOfflineEnabled() {

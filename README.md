@@ -9,6 +9,7 @@ ChatPass V1 原型实现了消息标准化、触发规则匹配、动作执行�
 - MQTT Control Plane：支持多 MQTT Data Plane 集群注册、租户到集群绑定和客户端 endpoint 获取。
 - 渠道 webhook：通过 `POST /api/channels/{channel}/webhook` 接收渠道原始 payload，经适配器标准化后进入消息缓冲队列。
 - 入站安全：支持 `X-ChatPass-Api-Key` 和 `X-ChatPass-Signature` HMAC-SHA256 验签。
+- P0 生产保护：支持 Prometheus Metrics、Redis 限流、MQTT 连接数限制和消息大小限制。
 - 消息缓冲：内置内存队列和后台 worker，用于削峰和异步处理。
 - 生产可靠性：内置基于 Redis 的消息状态、幂等、outbox 投递、持久化队列和死信队列。
 - 触发器规则引擎：支持启用状态、优先级、ALL/ANY 条件组合，以及 `CONTAINS`、`EQUALS`、`IN`、`REGEX` 等匹配操作。
@@ -190,6 +191,10 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 
 推荐生产形态是一个 ChatPass Control Plane 管理多个 MQTT Data Plane 集群。单个 MQTT 集群控制在 30-80 个节点，租户或会话固定路由到某个集群，避免 1000+ 节点组成单个大集群。
 更完整的多 Data Plane 架构、流程图和 Redis key 设计见 [`docs/mqtt-data-plane-architecture.md`](docs/mqtt-data-plane-architecture.md)。
+
+## 生产保护
+
+P0 生产保护能力包括 Prometheus Metrics、Redis 固定窗口限流、MQTT 连接数限制和消息大小限制，配置和指标见 [`docs/production-readiness-p0.md`](docs/production-readiness-p0.md)。
 
 ## 设计映射
 

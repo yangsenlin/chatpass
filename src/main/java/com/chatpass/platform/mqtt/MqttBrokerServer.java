@@ -48,7 +48,7 @@ public class MqttBrokerServer {
                 @Override
                 protected void initChannel(SocketChannel channel) {
                     channel.pipeline()
-                        .addLast("mqttDecoder", new MqttDecoder())
+                        .addLast("mqttDecoder", new MqttDecoder(properties.getMaxPayloadBytes()))
                         .addLast("mqttEncoder", MqttEncoder.INSTANCE)
                         .addLast("mqttBrokerHandler", brokerChannelHandler);
                 }

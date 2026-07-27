@@ -1,5 +1,7 @@
 package com.chatpass.platform.api;
 
+import com.chatpass.platform.protection.MessageTooLargeException;
+import com.chatpass.platform.protection.RateLimitExceededException;
 import com.chatpass.platform.workflow.engine.WorkflowValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,5 +23,17 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> badRequest(RuntimeException ex) {
         return Map.of("error", "BAD_REQUEST", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public Map<String, Object> rateLimited(RateLimitExceededException ex) {
+        return Map.of("error", "RATE_LIMITED", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(MessageTooLargeException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Map<String, Object> messageTooLarge(MessageTooLargeException ex) {
+        return Map.of("error", "MESSAGE_TOO_LARGE", "message", ex.getMessage());
     }
 }
