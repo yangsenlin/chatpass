@@ -177,12 +177,19 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 - `POST /api/mqtt/clusters`：注册或更新 MQTT Data Plane 集群。
 - `GET /api/mqtt/clusters`：查询集群列表。
 - `GET /api/mqtt/clusters/{clusterId}`：查询集群详情。
+- `GET /api/mqtt/clusters/{clusterId}/nodes`：查询集群存活节点。
 - `POST /api/mqtt/tenants/{tenantId}/binding`：绑定租户到指定 MQTT 集群。
 - `GET /api/mqtt/tenants/{tenantId}/binding`：查询租户集群绑定。
-- `GET /api/mqtt/tenants/{tenantId}/endpoint`：获取租户 MQTT 接入地址。
-- `GET /api/tenants/{tenantId}/mqtt/endpoint`：客户端侧获取 MQTT 接入地址。
+- `GET /api/mqtt/tenants/{tenantId}/endpoint?conversationId=...&streamId=...`：获取租户 MQTT 接入地址。
+- `GET /api/tenants/{tenantId}/mqtt/endpoint?conversationId=...&streamId=...`：客户端侧获取 MQTT 接入地址。
+- `GET /api/mqtt/routes/conversations/{tenantId}/{conversationId}`：查询会话路由。
+- `GET /api/mqtt/routes/streams/{streamId}`：查询流路由。
+- `POST /api/mqtt/tenants/{tenantId}/migrations`：启动租户灰度迁移。
+- `POST /api/mqtt/tenants/{tenantId}/migrations/{migrationId}/complete`：完成租户灰度迁移。
+- `POST /api/mqtt/tenants/{tenantId}/migrations/{migrationId}/cancel`：取消租户灰度迁移。
 
 推荐生产形态是一个 ChatPass Control Plane 管理多个 MQTT Data Plane 集群。单个 MQTT 集群控制在 30-80 个节点，租户或会话固定路由到某个集群，避免 1000+ 节点组成单个大集群。
+更完整的多 Data Plane 架构、流程图和 Redis key 设计见 [`docs/mqtt-data-plane-architecture.md`](docs/mqtt-data-plane-architecture.md)。
 
 ## 设计映射
 
