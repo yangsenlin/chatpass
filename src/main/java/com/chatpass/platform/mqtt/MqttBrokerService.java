@@ -25,21 +25,23 @@ public class MqttBrokerService {
     private final MqttSessionRegistry sessionRegistry;
     private final MqttIngressBridge ingressBridge;
     private final MqttOfflineMessageStore offlineMessageStore;
+    private final MqttRetainedMessageStore retainedMessageStore;
     private final MqttClusterBus clusterBus;
     private final MqttBrokerProperties properties;
-    private final Map<String, MqttRetainedMessage> retainedMessages = new ConcurrentHashMap<>();
     private final AtomicInteger packetIds = new AtomicInteger(1);
 
     public MqttBrokerService(
         MqttSessionRegistry sessionRegistry,
         MqttIngressBridge ingressBridge,
         MqttOfflineMessageStore offlineMessageStore,
+        MqttRetainedMessageStore retainedMessageStore,
         MqttClusterBus clusterBus,
         MqttBrokerProperties properties
     ) {
         this.sessionRegistry = sessionRegistry;
         this.ingressBridge = ingressBridge;
         this.offlineMessageStore = offlineMessageStore;
+        this.retainedMessageStore = retainedMessageStore;
         this.clusterBus = clusterBus;
         this.properties = properties;
     }
@@ -47,9 +49,9 @@ public class MqttBrokerService {
     public void publishFromClient(MqttClientSession publisher, String topic, byte[] payload, MqttQoS qoS, boolean retain) {
         if (retain) {
             if (payload.length == 0) {
-                retainedMessages.remove(topic);
+                retainedMessageStore.delete(topic);
             } else {
-                retainedMessages.put(topic, new MqttRetainedMessage(topic, payload, qoS));
+                retainedMessageStore.save(topic, payload, qoS);
             }
         }
         ingressBridge.bridge(publisher, topic, payload, qoS, retain);
@@ -73,7 +75,7 @@ public class MqttBrokerService {
     }
 
     public void replayRetainedMessages(MqttClientSession session, List<String> topicFilters) {
-        retainedMessages.values().stream()
+        retainedMessageStore.findAll().stream()
             .filter(message -> topicFilters.stream().anyMatch(filter -> TopicMatcher.matches(filter, message.getTopic())))
             .forEach(message -> session.getChannel().writeAndFlush(
                 publishMessage(message.getTopic(), message.getPayload(), message.getQoS(), true)

@@ -14,7 +14,7 @@ public class DefaultChannelMessageAdapter implements ChannelMessageAdapter {
 
     @Override
     public boolean supports(ChannelType channel) {
-        return true;
+        return channel == ChannelType.API || channel == ChannelType.OTHER || channel == ChannelType.MQTT;
     }
 
     @Override

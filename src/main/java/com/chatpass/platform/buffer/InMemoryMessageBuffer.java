@@ -51,8 +51,8 @@ public class InMemoryMessageBuffer implements MessageBuffer {
     }
 
     @Override
-    public Optional<MessageProcessingResult> result(String bufferId) {
-        return Optional.ofNullable(results.get(bufferId));
+    public Optional<Object> result(String bufferId) {
+        return Optional.ofNullable(results.get(bufferId)).map(result -> result);
     }
 
     @Override

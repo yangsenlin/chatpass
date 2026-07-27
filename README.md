@@ -8,12 +8,13 @@ ChatPass V1 原型实现了消息标准化、触发规则匹配、动作执行�
 - 渠道 webhook：通过 `POST /api/channels/{channel}/webhook` 接收渠道原始 payload，经适配器标准化后进入消息缓冲队列。
 - 入站安全：支持 `X-ChatPass-Api-Key` 和 `X-ChatPass-Signature` HMAC-SHA256 验签。
 - 消息缓冲：内置内存队列和后台 worker，用于削峰和异步处理。
+- 生产可靠性：内置基于 Redis 的消息状态、幂等、outbox 投递、持久化队列和死信队列。
 - 触发器规则引擎：支持启用状态、优先级、ALL/ANY 条件组合，以及 `CONTAINS`、`EQUALS`、`IN`、`REGEX` 等匹配操作。
 - 工作流动作执行：已支持 `AUTO_REPLY`、`DIFY_CHAT`、`TRANSFER_TO_AGENT` 和 `NOOP`。
 - DAG 工作流引擎：支持 Start/End/Action/Condition/Wait/Loop/HTTP 节点、边条件、ANY/ALL/FIRST 合流、异步节点提交、节点输出变量、挂起状态和恢复执行。
-- MQTT broker：基于 Netty MQTT codec 实现 TCP/WebSocket MQTT 接入、CONNECT、SUBSCRIBE、UNSUBSCRIBE、PUBLISH、PING、DISCONNECT、QoS1 ACK、QoS2 基础握手、retain 消息、订阅分发、离线消息和集群总线抽象。
+- MQTT broker：基于 Netty MQTT codec 实现 TCP/WebSocket MQTT 接入、CONNECT、SUBSCRIBE、UNSUBSCRIBE、PUBLISH、PING、DISCONNECT、QoS1 ACK、QoS2 基础握手、retain 消息、订阅分发、离线消息和集群总线抽象；订阅、retain、离线消息已落 Redis。
 - Dify 对接：复用 `dify-api-java-sdk`，配置 `chatpass.dify.enabled=true` 后可调用 Dify Chat App。
-- 输出适配层：组合输出到内存 outbox 和 MQTT 出站 sender，可通过 `GET /api/outbox` 查看处理结果。
+- 输出适配层：组合输出到内存 outbox、outbox 投递表和 MQTT 出站 sender，可通过 `GET /api/outbox` 查看处理结果。
 
 ## 启动
 
@@ -114,7 +115,8 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 - `message` 包对应统一消息接收层的标准化消息模型。
 - `channel` 包对应渠道 webhook 协议适配器。
 - `security` 包对应入站安全验证。
-- `buffer` 包对应消息队列缓冲。
+- `buffer` 包对应消息队列缓冲，默认使用 `RedisMessageBuffer` 持久化到 Redis list，并提供死信队列。
+- `reliability` 包对应消息状态、幂等和 outbox 投递可靠性。
 - `routing` 包对应路由中枢和触发器匹配引擎。
 - `workflow` 包对应动作执行抽象和 MoJarvis 风格 DAG 节点执行。
 - `mqtt` 包对应 kefu-gateway MQTT broker 主协议链路。
@@ -122,7 +124,7 @@ WebSocket MQTT 入口默认监听 `ws://localhost:8083/mqtt`，子协议为 `mqt
 
 ## 后续扩展
 
-- MQTT 生产化：将当前本地事件集群总线替换为 Redis/Kafka，将内存 session/subscription/retain/offline store 替换为 Redis/DB，并补齐 kefu-gateway 的 JWT payload、EasemobMessage 编解码。
+- MQTT 生产化：将当前本地事件集群总线替换为 Redis/Kafka，并补齐 kefu-gateway 的 JWT payload、EasemobMessage 编解码。
 - reachlink 对接：将其海外渠道消息转换为 `UnifiedMessage` 后投递到 `MessageIngressService`。
-- 消息缓冲生产化：将内存队列替换为 Kafka/RabbitMQ/RocketMQ，并增加死信队列和重试策略。
-- DAG 工作流生产化：将当前内存工作流定义和执行上下文替换为数据库持久化，并接入可视化编排器。
+- 消息缓冲生产化：当前为 Redis-backed durable queue，后续可替换为 Kafka/RabbitMQ/RocketMQ。
+- DAG 工作流生产化：工作流定义、执行快照、节点结果已落 Redis；后续接入可视化编排器。

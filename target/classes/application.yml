@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: chatpass-platform
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
 
 management:
   endpoints:
@@ -32,6 +37,11 @@ chatpass:
         whatsapp: dev-whatsapp-secret
         line: dev-line-secret
         instagram: dev-instagram-secret
+  history:
+    elasticsearch:
+      enabled: false
+      endpoint: http://localhost:9200
+      index: chatpass-message-history
   dify:
     enabled: false
     base-url: https://api.dify.ai/v1

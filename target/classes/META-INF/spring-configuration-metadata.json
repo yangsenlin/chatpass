@@ -6,6 +6,11 @@
       "sourceType": "com.chatpass.platform.config.DifyProperties"
     },
     {
+      "name": "chatpass.history.elasticsearch",
+      "type": "com.chatpass.platform.history.HistoryElasticsearchProperties",
+      "sourceType": "com.chatpass.platform.history.HistoryElasticsearchProperties"
+    },
+    {
       "name": "chatpass.mqtt",
       "type": "com.chatpass.platform.mqtt.MqttBrokerProperties",
       "sourceType": "com.chatpass.platform.mqtt.MqttBrokerProperties"
@@ -37,6 +42,24 @@
       "type": "java.lang.Boolean",
       "sourceType": "com.chatpass.platform.config.DifyProperties",
       "defaultValue": false
+    },
+    {
+      "name": "chatpass.history.elasticsearch.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chatpass.platform.history.HistoryElasticsearchProperties",
+      "defaultValue": false
+    },
+    {
+      "name": "chatpass.history.elasticsearch.endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.history.HistoryElasticsearchProperties",
+      "defaultValue": "http:\/\/localhost:9200"
+    },
+    {
+      "name": "chatpass.history.elasticsearch.index",
+      "type": "java.lang.String",
+      "sourceType": "com.chatpass.platform.history.HistoryElasticsearchProperties",
+      "defaultValue": "chatpass-message-history"
     },
     {
       "name": "chatpass.mqtt.bridge-ingress",
